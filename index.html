@@ -2,17 +2,15 @@
 <html lang="ru" class="scroll-smooth">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nebula Launcher — Minecraft Java 26.3 для Android</title>
-  <meta name="description" content="Nebula Launcher — сверхбыстрый нативный клиент Minecraft: Java Edition 26.3 на чистом Rust (wgpu/Vulkan) с сенсорным управлением Bedrock Touch для Android.">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+  <title>Nebula Launcher — Minecraft: Java Edition 26.3 для Android</title>
+  <meta name="description" content="Нативный клиент Minecraft: Java Edition 26.3 на Rust (wgpu/Vulkan) с сенсорным управлением Bedrock Touch для смартфонов и планшетов на Android.">
   <link rel="icon" type="image/jpeg" href="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/icon.jpg">
   
-  <!-- Google Fonts: Minecraft-style Press Start 2P & Inter for crisp body -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
   
-  <!-- Tailwind CSS via CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -20,7 +18,7 @@
         extend: {
           fontFamily: {
             pixel: ['"Press Start 2P"', 'monospace'],
-            sans: ['Inter', 'sans-serif'],
+            sans: ['Inter', 'system-ui', 'sans-serif'],
           },
           colors: {
             mc: {
@@ -34,8 +32,6 @@
               diamond: '#4dedf4',
               emerald: '#50c878',
               gold: '#fdb813',
-              redstone: '#e52c2c',
-              xp: '#7cfc00',
             }
           }
         }
@@ -44,7 +40,6 @@
   </script>
 
   <style>
-    /* Minecraft Pixel Perfect UI Elements */
     .mc-font {
       font-family: 'Press Start 2P', monospace;
       text-shadow: 2px 2px 0px #000;
@@ -54,25 +49,25 @@
     .mc-btn {
       font-family: 'Press Start 2P', monospace;
       position: relative;
-      background-color: #727272;
+      background-color: #646464;
       border: 3px solid #000;
-      box-shadow: inset -4px -4px 0px 0px #373737, inset 4px 4px 0px 0px #dbdbdb;
-      color: #e0e0e0;
-      text-shadow: 2px 2px 0px #222;
+      box-shadow: inset -4px -4px 0px 0px #2b2b2b, inset 4px 4px 0px 0px #c6c6c6;
+      color: #e5e5e5;
+      text-shadow: 2px 2px 0px #1a1a1a;
       cursor: pointer;
       user-select: none;
-      transition: all 0.05s ease;
+      touch-action: manipulation;
+      min-height: 48px;
     }
     
     .mc-btn:hover {
-      background-color: #8c8c8c;
-      box-shadow: inset -4px -4px 0px 0px #444444, inset 4px 4px 0px 0px #ffffff;
+      background-color: #7b7b7b;
+      box-shadow: inset -4px -4px 0px 0px #383838, inset 4px 4px 0px 0px #dedede;
       color: #ffffa0;
-      text-shadow: 2px 2px 0px #333;
     }
     
     .mc-btn:active {
-      box-shadow: inset 4px 4px 0px 0px #222222, inset -4px -4px 0px 0px #555555;
+      box-shadow: inset 4px 4px 0px 0px #1c1c1c, inset -4px -4px 0px 0px #424242;
       transform: translateY(2px);
     }
     
@@ -91,48 +86,36 @@
     }
     
     .mc-panel {
-      background: #252830;
-      border: 4px solid #101216;
-      box-shadow: inset -4px -4px 0px 0px #16181d, inset 4px 4px 0px 0px #3d424e, 0 16px 36px rgba(0,0,0,0.6);
+      background: #232730;
+      border: 3px solid #101216;
+      box-shadow: inset -3px -3px 0px 0px #14171d, inset 3px 3px 0px 0px #363b47, 0 12px 28px rgba(0,0,0,0.5);
     }
 
     .mc-slot {
-      background: #14171d;
-      border: 3px solid #000;
-      box-shadow: inset 3px 3px 0px 0px #0a0b0e, inset -3px -3px 0px 0px #2d3340;
+      background: #15181f;
+      border: 2px solid #0d0f14;
+      box-shadow: inset 2px 2px 0px 0px #0a0b0e, inset -2px -2px 0px 0px #272d3b;
     }
 
-    /* Animated Minecraft XP Bar */
-    @keyframes xp-glow {
-      0%, 100% { filter: drop-shadow(0 0 6px rgba(124, 252, 0, 0.6)); }
-      50% { filter: drop-shadow(0 0 16px rgba(124, 252, 0, 0.9)); }
-    }
-    .xp-glow {
-      animation: xp-glow 2s infinite ease-in-out;
-    }
-
-    /* Starfield Background */
     .bg-nebula {
-      background-color: #0b0d14;
+      background-color: #0c0f17;
       background-image: 
-        radial-gradient(circle at 50% 10%, rgba(99, 102, 241, 0.18) 0%, transparent 50%),
-        radial-gradient(circle at 85% 60%, rgba(168, 85, 247, 0.15) 0%, transparent 45%),
-        radial-gradient(circle at 15% 80%, rgba(34, 197, 94, 0.12) 0%, transparent 45%),
-        linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
-      background-size: 100% 100%, 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+        radial-gradient(circle at 50% 10%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+        radial-gradient(circle at 85% 60%, rgba(168, 85, 247, 0.12) 0%, transparent 45%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
     }
 
-    /* 3D Cube animation */
     .cube-wrap {
-      perspective: 800px;
+      perspective: 700px;
     }
     .cube {
-      width: 80px;
-      height: 80px;
+      width: 70px;
+      height: 70px;
       position: relative;
       transform-style: preserve-3d;
-      animation: spin 14s infinite linear;
+      animation: spin 16s infinite linear;
     }
     @keyframes spin {
       0% { transform: rotateX(-22deg) rotateY(0deg); }
@@ -140,37 +123,37 @@
     }
     .cube-face {
       position: absolute;
-      width: 80px;
-      height: 80px;
+      width: 70px;
+      height: 70px;
       border: 2px solid rgba(0,0,0,0.6);
       image-rendering: pixelated;
     }
-    .face-front  { transform: rotateY(0deg) translateZ(40px); background: #5c8e32; box-shadow: inset 0 0 15px #3a5c1e; }
-    .face-back   { transform: rotateY(180deg) translateZ(40px); background: #48351b; }
-    .face-right  { transform: rotateY(90deg) translateZ(40px); background: #48351b; }
-    .face-left   { transform: rotateY(-90deg) translateZ(40px); background: #48351b; }
-    .face-top    { transform: rotateX(90deg) translateZ(40px); background: #71ab3e; box-shadow: inset 0 0 15px #497524; }
-    .face-bottom { transform: rotateX(-90deg) translateZ(40px); background: #332311; }
+    .face-front  { transform: rotateY(0deg) translateZ(35px); background: #5c8e32; }
+    .face-back   { transform: rotateY(180deg) translateZ(35px); background: #48351b; }
+    .face-right  { transform: rotateY(90deg) translateZ(35px); background: #48351b; }
+    .face-left   { transform: rotateY(-90deg) translateZ(35px); background: #48351b; }
+    .face-top    { transform: rotateX(90deg) translateZ(35px); background: #71ab3e; }
+    .face-bottom { transform: rotateX(-90deg) translateZ(35px); background: #332311; }
   </style>
 </head>
-<body class="bg-nebula text-slate-100 min-h-screen flex flex-col font-sans selection:bg-emerald-500 selection:text-black">
+<body class="bg-nebula text-slate-100 min-h-screen flex flex-col font-sans pb-20 sm:pb-0">
 
   <!-- NAVBAR -->
-  <header class="border-b-4 border-black bg-slate-900/90 backdrop-blur-md sticky top-0 z-50 shadow-2xl">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/icon.jpg" alt="Nebula Logo" class="w-12 h-12 rounded-xl border-2 border-indigo-400 shadow-md">
+  <header class="border-b-4 border-black bg-slate-900/95 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 sm:h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/icon.jpg" alt="Логотип Nebula" class="w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 border-indigo-400">
         <div>
-          <span class="mc-font text-sm sm:text-base text-yellow-400 block tracking-wider">NEBULA LAUNCHER</span>
-          <span class="text-xs text-slate-400 font-medium">Minecraft Java 26.3 • Android Rust Client</span>
+          <span class="mc-font text-xs sm:text-base text-yellow-400 block tracking-wider">NEBULA LAUNCHER</span>
+          <span class="text-[11px] sm:text-xs text-slate-400 font-medium">Minecraft Java 26.3 • Android</span>
         </div>
       </div>
-      <div class="flex items-center gap-3">
-        <a href="https://github.com/sshremoteh/Nebula-Launcher" target="_blank" class="mc-btn px-3 py-2 text-xs flex items-center gap-2">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <a href="https://github.com/sshremoteh/Nebula-Launcher" target="_blank" class="mc-btn px-3 py-2 text-[11px] sm:text-xs flex items-center gap-1.5">
           <span>★</span> <span class="hidden sm:inline">GitHub</span>
         </a>
-        <a href="https://github.com/sshremoteh/Nebula-Launcher/releases/latest" class="mc-btn mc-btn-green px-4 py-2 text-xs flex items-center gap-2">
-          <span>⬇</span> <span>СКАЧАТЬ v1.0</span>
+        <a href="https://github.com/sshremoteh/Nebula-Launcher/releases/latest" class="mc-btn mc-btn-green px-3.5 sm:px-4 py-2 text-[11px] sm:text-xs flex items-center gap-1.5">
+          <span>⬇</span> <span>APK v1.0</span>
         </a>
       </div>
     </div>
@@ -178,10 +161,10 @@
 
   <!-- HERO SECTION -->
   <main class="flex-grow">
-    <section class="relative pt-12 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
+    <section class="pt-8 sm:pt-14 pb-14 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center">
       
-      <!-- Minecraft 3D Cube Floating Decoration -->
-      <div class="cube-wrap mx-auto mb-8 flex justify-center">
+      <!-- 3D Cube -->
+      <div class="cube-wrap mx-auto mb-6 flex justify-center">
         <div class="cube">
           <div class="cube-face face-front"></div>
           <div class="cube-face face-back"></div>
@@ -192,293 +175,347 @@
         </div>
       </div>
 
-      <!-- Main Title -->
-      <div class="inline-block bg-slate-800/80 border-2 border-indigo-500/50 rounded-full px-4 py-1.5 mb-6 text-xs text-indigo-300 font-semibold uppercase tracking-widest shadow-inner">
-        🌌 Официальный релиз 1.0 Release для Android
+      <!-- Version Badge -->
+      <div class="inline-block bg-slate-800 border border-slate-700 rounded-full px-3.5 py-1 mb-5 text-xs text-indigo-300 font-medium tracking-wide">
+        Версия 1.0 Release • Архитектура ARM64-v8a
       </div>
       
-      <h1 class="mc-font text-2xl sm:text-4xl md:text-5xl text-yellow-300 leading-tight mb-6">
-        MINECRAFT JAVA<br>НА ТВОЕМ СМАРТФОНЕ
+      <h1 class="mc-font text-xl sm:text-3xl md:text-5xl text-yellow-300 leading-tight mb-5">
+        MINECRAFT JAVA<br>НА ANDROID
       </h1>
 
-      <p class="max-w-2xl mx-auto text-base sm:text-lg text-slate-300 mb-10 leading-relaxed font-normal">
-        <b>Nebula Launcher</b> — революционный порт <b>Minecraft: Java Edition 26.3</b>, целиком написанный на <b>Rust (wgpu)</b>. Высочайший FPS на Vulkan, нативное сенсорное управление Bedrock Touch и поддержка сетевой игры.
+      <p class="max-w-2xl mx-auto text-sm sm:text-base text-slate-300 mb-8 leading-relaxed">
+        Нативный порт <b>Minecraft: Java Edition 26.3</b> на <b>Rust</b> с прямым рендерингом через <b>wgpu / Vulkan</b>. 
+        Поддерживает сенсорное управление Bedrock Touch, оффлайн-игру и подключение к сетевым Java-серверам.
       </p>
 
       <!-- Action Buttons -->
-      <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-14">
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-10 max-w-lg mx-auto">
         <a href="https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk" 
-           class="mc-btn mc-btn-green w-full sm:w-auto px-8 py-5 text-sm sm:text-base flex items-center justify-center gap-3 xp-glow">
+           class="mc-btn mc-btn-green w-full px-6 py-4 text-xs sm:text-sm flex items-center justify-center gap-2.5">
           <span>▶</span>
           <span>СКАЧАТЬ APK (138 МБ)</span>
         </a>
-        <a href="#features" class="mc-btn w-full sm:w-auto px-6 py-5 text-xs sm:text-sm flex items-center justify-center gap-2">
-          <span>📜</span>
-          <span>ОСОБЕННОСТИ И ВОЗМОЖНОСТИ</span>
+        <a href="#phones" class="mc-btn w-full px-5 py-4 text-xs sm:text-sm flex items-center justify-center gap-2">
+          <span>📱</span>
+          <span>СОВМЕСТИМОСТЬ</span>
         </a>
       </div>
 
-      <!-- Experience Bar Badge -->
-      <div class="max-w-md mx-auto mc-slot p-2 rounded-lg mb-16">
-        <div class="flex justify-between text-xs text-slate-400 mb-1 px-1">
-          <span>Сборка: arm64-v8a</span>
-          <span class="text-emerald-400 font-bold">100% Нативный Rust</span>
-          <span>Android 9.0–15+</span>
+      <!-- Quick Metrics -->
+      <div class="max-w-lg mx-auto mc-slot p-3 rounded-lg mb-12 text-left">
+        <div class="flex justify-between text-xs text-slate-400 mb-1.5">
+          <span>Платформа: Android 9.0–15+</span>
+          <span class="text-emerald-400 font-semibold">Native ARM64</span>
+          <span>targetSdk 34</span>
         </div>
-        <div class="w-full h-3 bg-slate-900 border border-black rounded relative overflow-hidden">
-          <div class="h-full bg-gradient-to-r from-lime-500 via-emerald-400 to-lime-300 w-full animate-pulse"></div>
+        <div class="w-full h-2.5 bg-slate-900 border border-black rounded overflow-hidden">
+          <div class="h-full bg-gradient-to-r from-emerald-500 to-lime-400 w-full"></div>
         </div>
       </div>
 
-      <!-- INTERACTIVE LAUNCHER PREVIEW CARD -->
-      <div class="mc-panel max-w-4xl mx-auto p-6 sm:p-8 rounded-xl text-left border-4 border-slate-900 shadow-2xl relative overflow-hidden">
-        <div class="flex flex-wrap items-center justify-between pb-6 border-b-2 border-slate-700/60 gap-4">
-          <div class="flex items-center gap-3">
-            <div class="w-4 h-4 rounded-full bg-emerald-500 shadow-sm animate-ping"></div>
-            <span class="mc-font text-xs sm:text-sm text-yellow-300">ИНТЕРФЕЙС NEBULA LAUNCHER</span>
+      <!-- LAUNCHER PREVIEW CARD -->
+      <div class="mc-panel max-w-4xl mx-auto p-5 sm:p-7 rounded-xl text-left">
+        <div class="flex flex-wrap items-center justify-between pb-4 border-b border-slate-700 gap-2">
+          <div class="flex items-center gap-2.5">
+            <span class="w-3 h-3 rounded-full bg-emerald-400 inline-block"></span>
+            <span class="mc-font text-xs sm:text-sm text-yellow-300">ИНТЕРФЕЙС ЛАУНЧЕРА</span>
           </div>
-          <span class="text-xs bg-indigo-900/60 text-indigo-300 px-3 py-1 rounded border border-indigo-500/40 font-mono">v1.0 Release • 26.3 Java</span>
+          <span class="text-[11px] bg-slate-800 text-slate-300 px-2.5 py-1 rounded font-mono">v1.0 Release</span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-          <!-- Left Column: Player & Settings -->
-          <div class="space-y-4">
-            <div class="mc-slot p-4 rounded-lg">
-              <span class="text-xs text-slate-400 uppercase font-semibold block mb-2">👤 Никнейм игрока</span>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-5">
+          <!-- Left Column -->
+          <div class="space-y-3 sm:space-y-4">
+            <div class="mc-slot p-3.5 rounded-lg">
+              <span class="text-xs text-slate-400 uppercase font-semibold block mb-1.5">Имя игрока</span>
               <div class="flex gap-2">
-                <input type="text" value="Steve" id="nickInput" class="w-full bg-slate-900 border-2 border-slate-700 rounded px-3 py-2 text-sm text-yellow-200 font-mono focus:outline-none focus:border-indigo-500" readonly>
-                <button onclick="randomNick()" class="mc-btn px-3 py-2 text-xs">🎲</button>
+                <input type="text" value="Player" id="nickInput" class="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-sm text-yellow-200 font-mono" readonly>
+                <button onclick="randomNick()" class="mc-btn px-3 py-2 text-xs" aria-label="Случайный ник">🎲</button>
               </div>
             </div>
 
-            <div class="mc-slot p-4 rounded-lg">
-              <span class="text-xs text-slate-400 uppercase font-semibold block mb-1">⚙ Настройки лаунчера</span>
-              <p class="text-xs text-slate-300 mb-3">Каталог модов .hmod, шейдеры .hshader, ресурспаки и кастомизация управления.</p>
+            <div class="mc-slot p-3.5 rounded-lg">
+              <span class="text-xs text-slate-400 uppercase font-semibold block mb-2">Настройки</span>
               <div class="grid grid-cols-2 gap-2 text-xs">
-                <div class="bg-slate-800/80 p-2 rounded border border-slate-700/50">📁 Ресурспаки</div>
-                <div class="bg-slate-800/80 p-2 rounded border border-slate-700/50">✨ Шейдеры</div>
-                <div class="bg-slate-800/80 p-2 rounded border border-slate-700/50">🧩 Каталог модов</div>
-                <div class="bg-slate-800/80 p-2 rounded border border-slate-700/50">🎮 Bedrock Touch</div>
+                <div class="bg-slate-800/90 p-2 rounded border border-slate-700">Паки ресурсов</div>
+                <div class="bg-slate-800/90 p-2 rounded border border-slate-700">Шейдеры .hshader</div>
+                <div class="bg-slate-800/90 p-2 rounded border border-slate-700">Моды .hmod</div>
+                <div class="bg-slate-800/90 p-2 rounded border border-slate-700">Управление тачем</div>
               </div>
             </div>
           </div>
 
-          <!-- Right Column: Game Card & Play Button -->
-          <div class="space-y-4 flex flex-col justify-between">
-            <div class="mc-slot p-4 rounded-lg flex items-center gap-4">
-              <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/icon.jpg" alt="Icon" class="w-14 h-14 rounded-lg border-2 border-emerald-400/80">
+          <!-- Right Column -->
+          <div class="space-y-3 sm:space-y-4 flex flex-col justify-between">
+            <div class="mc-slot p-3.5 rounded-lg flex items-center gap-3.5">
+              <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/icon.jpg" alt="Icon" class="w-12 h-12 rounded-lg border border-slate-700">
               <div>
-                <h4 class="font-bold text-white text-base">Minecraft Java Edition</h4>
+                <h4 class="font-semibold text-white text-sm">Minecraft Java Edition</h4>
                 <p class="text-xs text-slate-400">26.3 Release • Nebula Engine</p>
-                <div class="flex items-center gap-2 mt-1">
-                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block"></span>
-                  <span class="text-xs text-emerald-400 font-semibold">Готово к игре</span>
-                </div>
+                <span class="text-xs text-emerald-400 font-medium block mt-0.5">● Готово к игре</span>
               </div>
             </div>
 
-            <div class="mc-slot p-4 rounded-lg space-y-2">
-              <div class="flex justify-between text-xs font-semibold text-slate-300">
-                <span>Прогресс загрузки</span>
-                <span class="text-emerald-400">100.0%</span>
+            <div class="mc-slot p-3.5 rounded-lg space-y-1.5">
+              <div class="flex justify-between text-xs text-slate-300">
+                <span>Данные клиента</span>
+                <span class="text-emerald-400 font-mono">100%</span>
               </div>
-              <div class="w-full h-2.5 bg-slate-900 rounded overflow-hidden">
+              <div class="w-full h-2 bg-slate-900 rounded overflow-hidden">
                 <div class="h-full bg-emerald-500 w-full"></div>
               </div>
-              <div class="flex justify-between text-[11px] text-slate-400">
-                <span>12.4 / 12.4 МБ данных</span>
+              <div class="flex justify-between text-[11px] text-slate-400 font-mono">
+                <span>12.4 / 12.4 МБ</span>
                 <span>Этап 6 из 6</span>
               </div>
             </div>
 
-            <button onclick="playAlert()" class="mc-btn mc-btn-green w-full py-4 text-center text-sm font-bold">
-              ▶   И Г Р А Т Ь
+            <button onclick="playAlert()" class="mc-btn mc-btn-green w-full py-3.5 text-center text-xs sm:text-sm font-bold">
+              И Г Р А Т Ь
             </button>
           </div>
         </div>
       </div>
     </section>
 
-    <!-- FEATURES SECTION -->
-    <section id="features" class="py-20 bg-slate-900/60 border-t-4 border-b-4 border-black">
+    <!-- PHONE SUPPORT SECTION (ПОДДЕРЖКА ТЕЛЕФОНОВ) -->
+    <section id="phones" class="py-16 bg-slate-900/70 border-t-4 border-b-4 border-black">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center mb-16">
-          <h2 class="mc-font text-xl sm:text-3xl text-yellow-300 mb-4">ПРЕИМУЩЕСТВА NEBULA</h2>
-          <p class="text-slate-400 max-w-xl mx-auto text-sm sm:text-base">Движок оптимизирован специально для мобильных процессоров Snapdragon, MediaTek Dimensity и Tensor.</p>
+        <div class="text-center mb-12">
+          <h2 class="mc-font text-lg sm:text-2xl text-yellow-300 mb-3">ПОДДЕРЖКА СМАРТФОНОВ</h2>
+          <p class="text-slate-400 max-w-xl mx-auto text-xs sm:text-sm">
+            Клиент адаптирован под различные диагонали, соотношения сторон (16:9, 18:9, 20:9) и аппаратные платформы.
+          </p>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mb-10">
           
-          <!-- Card 1 -->
-          <div class="mc-panel p-6 rounded-xl hover:-translate-y-1 transition duration-200">
-            <div class="w-12 h-12 rounded-lg bg-emerald-600/30 border-2 border-emerald-400 flex items-center justify-center text-xl mb-4">
-              ⚡
+          <div class="mc-panel p-5 rounded-xl">
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-2xl">⚙️</span>
+              <h3 class="mc-font text-xs text-yellow-300">ПРОЦЕССОРЫ И ЧИПСЕТЫ</h3>
             </div>
-            <h3 class="mc-font text-sm text-yellow-300 mb-2">НАСТОЯЩИЙ RUST + VULKAN</h3>
-            <p class="text-slate-300 text-sm leading-relaxed">
-              Никакого громоздкого JVM-эмулятора на экране: весь клиент компилируется напрямую в бинарный код ARM64. Быстрый рендеринг через графические драйверы Vulkan и GLES 3.0.
-            </p>
+            <ul class="text-xs text-slate-300 space-y-2">
+              <li><b class="text-white">Qualcomm Snapdragon:</b> 8 Gen 1/2/3, 888, 870, 7xx, 6xx (полная поддержка Adreno Vulkan).</li>
+              <li><b class="text-white">MediaTek Dimensity:</b> 9000+, 8000+, 7000+ (Mali GPU через Vulkan или OpenGL ES).</li>
+              <li><b class="text-white">Google Tensor:</b> G1, G2, G3, G4 (аппаратное ускорение).</li>
+              <li><b class="text-white">Samsung Exynos:</b> Xclipse / Mali GPU.</li>
+            </ul>
           </div>
 
-          <!-- Card 2 -->
-          <div class="mc-panel p-6 rounded-xl hover:-translate-y-1 transition duration-200">
-            <div class="w-12 h-12 rounded-lg bg-indigo-600/30 border-2 border-indigo-400 flex items-center justify-center text-xl mb-4">
-              🎮
+          <div class="mc-panel p-5 rounded-xl">
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-2xl">📐</span>
+              <h3 class="mc-font text-xs text-yellow-300">ФОРМ-ФАКТОРЫ ЭКРАНА</h3>
             </div>
-            <h3 class="mc-font text-sm text-yellow-300 mb-2">BEDROCK TOUCH УПРАВЛЕНИЕ</h3>
-            <p class="text-slate-300 text-sm leading-relaxed">
-              4 настраиваемые схемы управления: плавающий аналоговый джойстик или дискретный D-Pad, прицеливание тапом или фиксированным перекрестием, кастомизация положения кнопок.
-            </p>
+            <ul class="text-xs text-slate-300 space-y-2">
+              <li><b class="text-white">Альбомный режим (Landscape):</b> основной режим с двухпанельным дашбордом.</li>
+              <li><b class="text-white">Портретный режим:</b> вертикальная компоновка для раскладушек (напр. Fujitsu F-03L) и компактных экранов.</li>
+              <li><b class="text-white">Планшеты и Fold-устройства:</b> адаптивная сетка без растягивания кнопок.</li>
+              <li><b class="text-white">Вырезы и челки:</b> безопасные отступы краев экрана (Safe Insets).</li>
+            </ul>
           </div>
 
-          <!-- Card 3 -->
-          <div class="mc-panel p-6 rounded-xl hover:-translate-y-1 transition duration-200">
-            <div class="w-12 h-12 rounded-lg bg-yellow-600/30 border-2 border-yellow-400 flex items-center justify-center text-xl mb-4">
-              🌐
+          <div class="mc-panel p-5 rounded-xl">
+            <div class="flex items-center gap-3 mb-3">
+              <span class="text-2xl">🕹️</span>
+              <h3 class="mc-font text-xs text-yellow-300">ТАЧ-УПРАВЛЕНИЕ</h3>
             </div>
-            <h3 class="mc-font text-sm text-yellow-300 mb-2">JAVA СЕРВЕРЫ И LAN</h3>
-            <p class="text-slate-300 text-sm leading-relaxed">
-              Подключайтесь к реальным серверам Java Edition: играйте на Hypixel, локальных мирах по Wi-Fi или открывайте собственные миры для друзей.
-            </p>
+            <ul class="text-xs text-slate-300 space-y-2">
+              <li><b class="text-white">Джойстик:</b> плавное перемещение с регулируемым радиусом и поддержкой спринта.</li>
+              <li><b class="text-white">D-Pad:</b> дискретные стрелки движения для точного платформинга.</li>
+              <li><b class="text-white">Кастомизация:</b> свободное изменение координат, масштаба и прозрачности всех кнопок.</li>
+              <li><b class="text-white">Тактильный отклик:</b> виброотдача при разрушении блоков и ударах.</li>
+            </ul>
           </div>
 
-          <!-- Card 4 -->
-          <div class="mc-panel p-6 rounded-xl hover:-translate-y-1 transition duration-200">
-            <div class="w-12 h-12 rounded-lg bg-purple-600/30 border-2 border-purple-400 flex items-center justify-center text-xl mb-4">
-              🎨
-            </div>
-            <h3 class="mc-font text-sm text-yellow-300 mb-2">ШЕЙДЕРЫ И МОДЫ</h3>
-            <p class="text-slate-300 text-sm leading-relaxed">
-              Встроенный менеджер пакетов: установка нативных WGSL шейдеров <code>.hshader</code>, модов <code>.hmod</code>, текстур и ресурспаков в один клик.
-            </p>
-          </div>
+        </div>
 
-          <!-- Card 5 -->
-          <div class="mc-panel p-6 rounded-xl hover:-translate-y-1 transition duration-200">
-            <div class="w-12 h-12 rounded-lg bg-blue-600/30 border-2 border-blue-400 flex items-center justify-center text-xl mb-4">
-              📱
+        <!-- Phone Optimization Recommendations -->
+        <div class="mc-slot p-5 rounded-xl max-w-4xl mx-auto">
+          <h4 class="mc-font text-xs text-yellow-300 mb-3">РЕКОМЕНДАЦИИ ПО НАСТРОЙКЕ ДЛЯ ВАШЕГО ТЕЛЕФОНА</h4>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs text-slate-300">
+            <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+              <span class="text-emerald-400 font-bold block mb-1">ОЗУ 3 ГБ</span>
+              <p>Дистанция прорисовки: <b>4–6 чанков</b>. Рекомендуется закрыть фоновые приложения.</p>
             </div>
-            <h3 class="mc-font text-sm text-yellow-300 mb-2">ANDROUD 9.0 – 15+</h3>
-            <p class="text-slate-300 text-sm leading-relaxed">
-              targetSdkVersion 34 и полная поддержка современных стандартов экрана. Никаких черных полос, рамок совместимости или сжатия разрешения экрана.
-            </p>
-          </div>
-
-          <!-- Card 6 -->
-          <div class="mc-panel p-6 rounded-xl hover:-translate-y-1 transition duration-200">
-            <div class="w-12 h-12 rounded-lg bg-rose-600/30 border-2 border-rose-400 flex items-center justify-center text-xl mb-4">
-              🔋
+            <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+              <span class="text-indigo-400 font-bold block mb-1">ОЗУ 4–6 ГБ</span>
+              <p>Дистанция прорисовки: <b>8–10 чанков</b>. Стабильные 60 FPS на средних чипсетах.</p>
             </div>
-            <h3 class="mc-font text-sm text-yellow-300 mb-2">ЭКОНОМИЯ БАТАРЕИ И ОЗУ</h3>
-            <p class="text-slate-300 text-sm leading-relaxed">
-              Благодаря отсутствию накладных расходов виртуальной машины телефон меньше греется и тратит значительно меньше заряда батареи в долгих игровых сессиях.
-            </p>
+            <div class="bg-slate-900/80 p-3 rounded border border-slate-800">
+              <span class="text-yellow-400 font-bold block mb-1">ОЗУ 8+ ГБ</span>
+              <p>Дистанция: <b>12–16+ чанков</b>. Включение нативных шейдеров и частота экрана до 120 Гц.</p>
+            </div>
           </div>
-
         </div>
       </div>
     </section>
 
-    <!-- SCREENSHOTS SHOWCASE -->
-    <section class="py-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <h2 class="mc-font text-xl sm:text-3xl text-yellow-300 mb-4">РЕАЛЬНЫЙ ГЕЙМПЛЕЙ НА СМАРТФОНЕ</h2>
-      <p class="text-slate-400 max-w-lg mx-auto text-sm mb-12">Скриншоты реальной игры на реальных телефонах в высоком разрешении.</p>
+    <!-- FEATURES SECTION -->
+    <section id="features" class="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center mb-12">
+        <h2 class="mc-font text-lg sm:text-2xl text-yellow-300 mb-3">ОСОБЕННОСТИ ДВИЖКА</h2>
+        <p class="text-slate-400 max-w-md mx-auto text-xs sm:text-sm">Технические параметры реализации клиента.</p>
+      </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div class="mc-slot p-2 rounded-xl">
-          <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/joystick-fox.png" alt="Джойстик в лесу" class="rounded-lg w-full h-44 object-cover">
-          <span class="mc-font text-[10px] text-yellow-200 block mt-2">Джойстик и лиса</span>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        
+        <div class="mc-panel p-5 rounded-xl">
+          <h3 class="mc-font text-xs text-yellow-300 mb-2">НАТИВНЫЙ БИНАРНИК RUST</h3>
+          <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Код компилируется напрямую в ELF/SO для архитектуры <code>arm64-v8a</code> без JVM-интерпретации геймплея на экране.
+          </p>
         </div>
-        <div class="mc-slot p-2 rounded-xl">
-          <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/dpad-river.png" alt="D-Pad река" class="rounded-lg w-full h-44 object-cover">
-          <span class="mc-font text-[10px] text-yellow-200 block mt-2">D-Pad и река</span>
+
+        <div class="mc-panel p-5 rounded-xl">
+          <h3 class="mc-font text-xs text-yellow-300 mb-2">VULKAN И GLES 3.0</h3>
+          <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Поддержка низкоуровневого API Vulkan для Adreno и Mali с автоматическим откатом на OpenGL ES при необходимости.
+          </p>
         </div>
-        <div class="mc-slot p-2 rounded-xl">
-          <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/hypixel-arcade.png" alt="Hypixel Arcade" class="rounded-lg w-full h-44 object-cover">
-          <span class="mc-font text-[10px] text-yellow-200 block mt-2">Hypixel Arcade</span>
+
+        <div class="mc-panel p-5 rounded-xl">
+          <h3 class="mc-font text-xs text-yellow-300 mb-2">JAVA СЕТЕВЫЕ СЕРВЕРЫ</h3>
+          <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Реализация протокола 777: вход на серверы Minecraft Java Edition, поддержка LAN-миров и оффлайн-режима.
+          </p>
         </div>
-        <div class="mc-slot p-2 rounded-xl">
-          <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/snow-landscape.png" alt="Снежный биом" class="rounded-lg w-full h-44 object-cover">
-          <span class="mc-font text-[10px] text-yellow-200 block mt-2">Снежный биом</span>
+
+        <div class="mc-panel p-5 rounded-xl">
+          <h3 class="mc-font text-xs text-yellow-300 mb-2">ПАКЕТЫ МОДОВ И ШЕЙДЕРОВ</h3>
+          <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Встроенная работа с нативными пакетами <code>.hshader</code> и модами контента <code>.hmod</code> через файловый интерфейс.
+          </p>
+        </div>
+
+        <div class="mc-panel p-5 rounded-xl">
+          <h3 class="mc-font text-xs text-yellow-300 mb-2">TARGET SDK 34</h3>
+          <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Совместимость с Android 14 и 15: честный полноэкранный режим без устаревших рамок letterbox.
+          </p>
+        </div>
+
+        <div class="mc-panel p-5 rounded-xl">
+          <h3 class="mc-font text-xs text-yellow-300 mb-2">УПРАВЛЕНИЕ МИРАМИ</h3>
+          <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Экспорт и импорт сохранений через системный Android Storage Access Framework без root-прав.
+          </p>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- SCREENSHOTS SHOWCASE -->
+    <section class="py-16 bg-slate-900/50 border-t-4 border-b-4 border-black">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 class="mc-font text-lg sm:text-2xl text-yellow-300 mb-3">СКРИНШОТЫ ГЕЙМПЛЕЯ</h2>
+        <p class="text-slate-400 max-w-md mx-auto text-xs sm:text-sm mb-10">Снимки экрана с реальных устройств.</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="mc-slot p-2 rounded-xl">
+            <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/joystick-fox.png" alt="Джойстик" class="rounded-lg w-full h-44 object-cover">
+            <span class="mc-font text-[10px] text-yellow-200 block mt-2">Джойстик и лиса</span>
+          </div>
+          <div class="mc-slot p-2 rounded-xl">
+            <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/dpad-river.png" alt="D-Pad" class="rounded-lg w-full h-44 object-cover">
+            <span class="mc-font text-[10px] text-yellow-200 block mt-2">D-Pad и река</span>
+          </div>
+          <div class="mc-slot p-2 rounded-xl">
+            <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/hypixel-arcade.png" alt="Hypixel" class="rounded-lg w-full h-44 object-cover">
+            <span class="mc-font text-[10px] text-yellow-200 block mt-2">Hypixel Arcade</span>
+          </div>
+          <div class="mc-slot p-2 rounded-xl">
+            <img src="https://raw.githubusercontent.com/sshremoteh/Nebula-Launcher/main/docs/media/android/snow-landscape.png" alt="Снежный биом" class="rounded-lg w-full h-44 object-cover">
+            <span class="mc-font text-[10px] text-yellow-200 block mt-2">Снежный биом</span>
+          </div>
         </div>
       </div>
     </section>
 
     <!-- SYSTEM REQUIREMENTS TABLE -->
-    <section class="py-16 bg-slate-900/40 border-t-4 border-black">
-      <div class="max-w-4xl mx-auto px-4">
-        <h2 class="mc-font text-lg sm:text-2xl text-yellow-300 text-center mb-8">СИСТЕМНЫЕ ТРЕБОВАНИЯ</h2>
-        <div class="mc-panel p-6 rounded-xl overflow-x-auto">
-          <table class="w-full text-left text-sm text-slate-300">
-            <thead class="border-b-2 border-slate-700 text-xs font-semibold uppercase text-yellow-300 mc-font">
-              <tr>
-                <th class="py-3 px-4">Параметр</th>
-                <th class="py-3 px-4">Минимум</th>
-                <th class="py-3 px-4">Рекомендуется</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-800">
-              <tr>
-                <td class="py-3 px-4 font-bold text-white">Версия Android</td>
-                <td class="py-3 px-4">Android 9.0 (Pie)</td>
-                <td class="py-3 px-4 text-emerald-400">Android 12 – 15+</td>
-              </tr>
-              <tr>
-                <td class="py-3 px-4 font-bold text-white">Архитектура</td>
-                <td class="py-3 px-4">64-bit ARM (arm64-v8a)</td>
-                <td class="py-3 px-4 text-emerald-400">64-bit ARM (arm64-v8a)</td>
-              </tr>
-              <tr>
-                <td class="py-3 px-4 font-bold text-white">Оперативная память</td>
-                <td class="py-3 px-4">3 ГБ RAM</td>
-                <td class="py-3 px-4 text-emerald-400">6–8 ГБ RAM и выше</td>
-              </tr>
-              <tr>
-                <td class="py-3 px-4 font-bold text-white">Графический API</td>
-                <td class="py-3 px-4">OpenGL ES 3.0</td>
-                <td class="py-3 px-4 text-emerald-400">Vulkan 1.1 / 1.2+</td>
-              </tr>
-              <tr>
-                <td class="py-3 px-4 font-bold text-white">Свободное место</td>
-                <td class="py-3 px-4">~500 МБ</td>
-                <td class="py-3 px-4 text-emerald-400">2 ГБ для миров и модов</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+    <section class="py-16 max-w-4xl mx-auto px-4">
+      <h2 class="mc-font text-base sm:text-xl text-yellow-300 text-center mb-6">СИСТЕМНЫЕ ТРЕБОВАНИЯ</h2>
+      <div class="mc-panel p-5 rounded-xl overflow-x-auto">
+        <table class="w-full text-left text-xs sm:text-sm text-slate-300">
+          <thead class="border-b border-slate-700 text-[11px] sm:text-xs font-semibold uppercase text-yellow-300 mc-font">
+            <tr>
+              <th class="py-2.5 px-3">Параметр</th>
+              <th class="py-2.5 px-3">Минимум</th>
+              <th class="py-2.5 px-3">Рекомендуется</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-800">
+            <tr>
+              <td class="py-2.5 px-3 font-medium text-white">Версия Android</td>
+              <td class="py-2.5 px-3">Android 9.0 (API 28)</td>
+              <td class="py-2.5 px-3 text-emerald-400">Android 12 – 15+</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-medium text-white">Архитектура</td>
+              <td class="py-2.5 px-3">64-bit ARM (`arm64-v8a`)</td>
+              <td class="py-2.5 px-3 text-emerald-400">64-bit ARM (`arm64-v8a`)</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-medium text-white">ОЗУ (RAM)</td>
+              <td class="py-2.5 px-3">3 ГБ</td>
+              <td class="py-2.5 px-3 text-emerald-400">6–8 ГБ</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-medium text-white">Графика</td>
+              <td class="py-2.5 px-3">OpenGL ES 3.0</td>
+              <td class="py-2.5 px-3 text-emerald-400">Vulkan 1.1+</td>
+            </tr>
+            <tr>
+              <td class="py-2.5 px-3 font-medium text-white">Память</td>
+              <td class="py-2.5 px-3">~500 МБ</td>
+              <td class="py-2.5 px-3 text-emerald-400">2 ГБ</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
-    <!-- FAQ & DOWNLOAD BANNER -->
-    <section class="py-20 max-w-4xl mx-auto px-4 text-center">
-      <div class="mc-panel p-8 sm:p-12 rounded-2xl relative overflow-hidden">
-        <div class="absolute -top-10 -right-10 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div class="absolute -bottom-10 -left-10 w-40 h-40 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-
-        <h3 class="mc-font text-lg sm:text-2xl text-yellow-300 mb-4">ГОТОВ К ПРИКЛЮЧЕНИЯМ?</h3>
-        <p class="text-slate-300 text-sm sm:text-base max-w-lg mx-auto mb-8">
-          Скачивай бесплатный установочный файл Nebula Launcher и исследуй бесконечные миры Minecraft прямо на телефоне.
+    <!-- DOWNLOAD SECTION -->
+    <section class="py-14 max-w-3xl mx-auto px-4 text-center">
+      <div class="mc-panel p-6 sm:p-10 rounded-2xl">
+        <h3 class="mc-font text-base sm:text-xl text-yellow-300 mb-3">ЗАГРУЗКА КЛИЕНТА</h3>
+        <p class="text-slate-300 text-xs sm:text-sm max-w-md mx-auto mb-6">
+          Скачайте готовый установочный APK-пакет и запустите клиент на Android-устройстве.
         </p>
 
         <a href="https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk" 
-           class="mc-btn mc-btn-green inline-block px-10 py-5 text-sm sm:text-base xp-glow">
-          ⚡ СКАЧАТЬ NEBULA LAUNCHER (v1.0)
+           class="mc-btn mc-btn-green inline-block px-8 py-4 text-xs sm:text-sm">
+          СКАЧАТЬ NEBULA LAUNCHER v1.0
         </a>
       </div>
     </section>
   </main>
 
+  <!-- STICKY MOBILE BOTTOM BAR FOR PHONES -->
+  <div class="fixed bottom-0 left-0 right-0 p-3 bg-slate-950/95 border-t-2 border-black backdrop-blur-md sm:hidden z-50 flex gap-2">
+    <a href="https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk" 
+       class="mc-btn mc-btn-green flex-1 py-3 text-center text-[11px] flex items-center justify-center gap-1.5 shadow-lg">
+      <span>⬇</span> <span>СКАЧАТЬ APK (138 МБ)</span>
+    </a>
+    <a href="https://github.com/sshremoteh/Nebula-Launcher" target="_blank" 
+       class="mc-btn px-4 py-3 text-xs flex items-center justify-center">
+      <span>★</span>
+    </a>
+  </div>
+
   <!-- FOOTER -->
-  <footer class="border-t-4 border-black bg-slate-950 py-10 text-center text-xs text-slate-500">
-    <div class="max-w-7xl mx-auto px-4 space-y-3">
-      <p class="mc-font text-yellow-500/80">NEBULA LAUNCHER 2026</p>
-      <p>Проект с открытым исходным кодом. Разработано сообществом разработчиков на Rust.</p>
-      <p class="text-[11px] text-slate-600">Minecraft является зарегистрированной торговой маркой Mojang AB / Microsoft. Данный проект не одобрен и не связан с Mojang AB.</p>
+  <footer class="border-t-4 border-black bg-slate-950 py-8 text-center text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 space-y-2">
+      <p class="mc-font text-yellow-600/90 text-[11px]">NEBULA LAUNCHER</p>
+      <p>Открытый проект на базе нативного клиента Horizon Rust для Minecraft Java 26.3.</p>
+      <p class="text-[10px] text-slate-600">Minecraft является товарным знаком Mojang AB / Microsoft. Проект не связан с Mojang AB.</p>
     </div>
   </footer>
 
   <script>
-    const nicks = ['Steve', 'Alex', 'Herobrine', 'Notch', 'NebulaCraft', 'DiamondMiner', 'Enderman', 'CreeperHunter'];
+    const nicks = ['Steve', 'Alex', 'Herobrine', 'Miner', 'Nebula', 'Enderman'];
     function randomNick() {
       const current = document.getElementById('nickInput').value;
       let next = nicks[Math.floor(Math.random() * nicks.length)];
@@ -489,7 +526,7 @@
     }
 
     function playAlert() {
-      alert('В симуляторе лаунчера все ресурсы проверены! Для полноценной игры скачайте APK-файл кнопкой выше.');
+      alert('В симуляторе лаунчера все данные проверены. Для игры установите APK на Android-смартфон.');
     }
   </script>
 </body>
