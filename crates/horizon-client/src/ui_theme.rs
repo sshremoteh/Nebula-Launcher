@@ -68,6 +68,66 @@ pub mod color {
     }
 }
 
+/// Material Design 3 (Material You) dark theme palette and tokens for Nebula Launcher.
+pub mod md3 {
+    use super::color::hex;
+
+    // Cosmic Surface Tonal Hierarchy
+    pub const SURFACE: u32 = hex(0x0c0e14, 255);
+    pub const SURFACE_CONTAINER_LOW: u32 = hex(0x131722, 255);
+    pub const SURFACE_CONTAINER: u32 = hex(0x181e2b, 255);
+    pub const SURFACE_CONTAINER_HIGH: u32 = hex(0x202737, 255);
+    pub const SURFACE_CONTAINER_HIGHEST: u32 = hex(0x2a3346, 255);
+
+    // Primary Accents (Emerald Mint / Nebula Green)
+    pub const PRIMARY: u32 = hex(0x4ade80, 255);
+    pub const ON_PRIMARY: u32 = hex(0x052e16, 255);
+    pub const PRIMARY_CONTAINER: u32 = hex(0x166534, 255);
+    pub const ON_PRIMARY_CONTAINER: u32 = hex(0xbbf7d0, 255);
+
+    // Secondary Accents (Blue Slate)
+    pub const SECONDARY: u32 = hex(0x93c5fd, 255);
+    pub const SECONDARY_CONTAINER: u32 = hex(0x1e3a8a, 255);
+    pub const ON_SECONDARY_CONTAINER: u32 = hex(0xdbeafe, 255);
+
+    // Tertiary Accents (Indigo Violet)
+    pub const TERTIARY: u32 = hex(0xc7b8ff, 255);
+    pub const TERTIARY_CONTAINER: u32 = hex(0x4338ca, 255);
+    pub const ON_TERTIARY_CONTAINER: u32 = hex(0xe0e7ff, 255);
+
+    // Text & Outlines
+    pub const ON_SURFACE: u32 = hex(0xf8fafc, 255);
+    pub const ON_SURFACE_VARIANT: u32 = hex(0x94a3b8, 255);
+    pub const OUTLINE: u32 = hex(0x475569, 255);
+    pub const OUTLINE_VARIANT: u32 = hex(0x334155, 180);
+
+    // Status Colors
+    pub const SUCCESS: u32 = hex(0x34d399, 255);
+    pub const WARNING: u32 = hex(0xfbbf24, 255);
+    pub const ERROR: u32 = hex(0xf87171, 255);
+
+    // Shapes in dp
+    pub const SHAPE_S: f32 = 8.0;
+    pub const SHAPE_M: f32 = 12.0;
+    pub const SHAPE_L: f32 = 16.0;
+    pub const SHAPE_XL: f32 = 24.0;
+    pub const SHAPE_FULL: f32 = 999.0;
+
+    /// Material Motion standard emphasized deceleration curve (0.05, 0.7, 0.1, 1.0)
+    #[inline]
+    pub fn emphasized_decelerate(t: f32) -> f32 {
+        let t = t.clamp(0.0, 1.0);
+        1.0 - (1.0 - t).powi(3)
+    }
+
+    /// Material Motion standard easing curve
+    #[inline]
+    pub fn standard_easing(t: f32) -> f32 {
+        let t = t.clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
+    }
+}
+
 /// The launcher's type scale and shapes (`horizon_theme`), in dp.
 pub(crate) const SMALL: f32 = horizon_theme::CAPTION.px;
 pub(crate) const BODY: f32 = horizon_theme::LABEL.px;
@@ -577,6 +637,126 @@ impl<'a> Ui<'a> {
         let y2 = y0 + h_px - bar_h;
         self.raw_fill(x0, y2, x0 + w_px, y2 + bar_h, color);
         self.raw_fill(x0 + w_px * 0.35, y2 - bar_h, x0 + w_px * 0.6, y2 + bar_h * 2.0, color);
+    }
+
+    /// Draw a Material Design 3 Card with surface container background and outline.
+    pub fn md3_card(&mut self, x: f32, y: f32, w: f32, h: f32, radius: f32, bg: u32, border_color: u32) {
+        self.rounded(x, y, w, h, radius, bg);
+        if border_color >> 24 != 0 {
+            self.border(x, y, w, h, radius, border_color);
+        }
+    }
+
+    /// Draw a Material Design 3 Badge with pill shape and centered text.
+    pub fn md3_badge(&mut self, x: f32, y: f32, text: &str, bg: u32, fg: u32) {
+        let text_w = self.measure(Face::Medium, 10.0, text);
+        let pad_h = 7.0;
+        let badge_w = text_w + 2.0 * pad_h;
+        let badge_h = 18.0;
+        self.rounded(x, y, badge_w, badge_h, 9.0, bg);
+        self.text(Face::Medium, 10.0, x + pad_h, y + 3.0, fg, text);
+    }
+
+    /// Draw a Material Touch Ripple expanding within `rect` bounds.
+    pub fn md3_ripple(
+        &mut self,
+        rect: [f32; 4],
+        origin: (f32, f32),
+        radius: f32,
+        alpha: u8,
+        color: u32,
+    ) {
+        if alpha == 0 || radius <= 0.0 {
+            return;
+        }
+        let [rx, ry, rw, rh] = rect;
+        let (cx, cy) = origin;
+        // Bounding clamp of the circular ripple
+        let x0 = (cx - radius).max(rx);
+        let y0 = (cy - radius).max(ry);
+        let x1 = (cx + radius).min(rx + rw);
+        let y1 = (cy + radius).min(ry + rh);
+        if x1 > x0 && y1 > y0 {
+            let r_w = x1 - x0;
+            let r_h = y1 - y0;
+            let corner = (r_w.min(r_h) * 0.5).min(radius);
+            let ripple_color = (color & 0x00ff_ffff) | ((alpha as u32) << 24);
+            self.rounded(x0, y0, r_w, r_h, corner, ripple_color);
+        }
+    }
+
+    /// Draw a crisp vector checkmark (✓).
+    pub fn check_icon(&mut self, x: f32, y: f32, size: f32, color: u32) {
+        if color >> 24 == 0 {
+            return;
+        }
+        let (x0, y0) = (self.px_x(x), self.px_y(y));
+        let s = size * self.density;
+        let thick = (s * 0.16).max(1.0);
+        // Short stroke (down-right)
+        for i in 0..(s * 0.35) as i32 {
+            let fi = i as f32;
+            self.raw_fill(x0 + fi, y0 + s * 0.5 + fi, x0 + fi + thick, y0 + s * 0.5 + fi + thick, color);
+        }
+        // Long stroke (up-right)
+        let mid_x = x0 + s * 0.35;
+        let mid_y = y0 + s * 0.85;
+        for i in 0..(s * 0.65) as i32 {
+            let fi = i as f32;
+            self.raw_fill(mid_x + fi, mid_y - fi * 1.2, mid_x + fi + thick, mid_y - fi * 1.2 + thick, color);
+        }
+    }
+
+    /// Draw a vector gear / settings icon.
+    pub fn gear_icon(&mut self, x: f32, y: f32, size: f32, color: u32) {
+        if color >> 24 == 0 {
+            return;
+        }
+        let (cx, cy) = (self.px_x(x + size * 0.5), self.px_y(y + size * 0.5));
+        let r = size * self.density * 0.5;
+        let teeth = 6;
+        for i in 0..teeth {
+            let angle = (i as f32 / teeth as f32) * std::f32::consts::PI;
+            let dx = angle.cos() * r;
+            let dy = angle.sin() * r;
+            let w = (r * 0.3).max(1.0);
+            self.raw_fill(cx - dx - w * 0.5, cy - dy - w * 0.5, cx + dx + w * 0.5, cy + dy + w * 0.5, color);
+        }
+    }
+
+    /// Draw a vector folder icon.
+    pub fn folder_icon(&mut self, x: f32, y: f32, size: f32, color: u32) {
+        if color >> 24 == 0 {
+            return;
+        }
+        let (x0, y0) = (self.px_x(x), self.px_y(y));
+        let (w, h) = (size * self.density, size * self.density * 0.8);
+        // Tab
+        self.raw_fill(x0, y0, x0 + w * 0.45, y0 + h * 0.3, color);
+        // Main body
+        self.raw_fill(x0, y0 + h * 0.25, x0 + w, y0 + h, color);
+    }
+
+    /// Draw a vector vibration / haptic waves icon.
+    pub fn vibrate_icon(&mut self, x: f32, y: f32, size: f32, color: u32) {
+        if color >> 24 == 0 {
+            return;
+        }
+        let (x0, y0) = (self.px_x(x), self.px_y(y));
+        let (w, h) = (size * self.density, size * self.density);
+        let phone_w = w * 0.45;
+        let px = x0 + (w - phone_w) * 0.5;
+        // Central phone device
+        self.raw_fill(px, y0, px + phone_w, y0 + h, color);
+        // Screen hollow
+        let hollow = color::hex(0x0c0e14, 255);
+        self.raw_fill(px + 2.0, y0 + 3.0, px + phone_w - 2.0, y0 + h - 3.0, hollow);
+        // Left waves
+        self.raw_fill(x0, y0 + h * 0.25, x0 + 2.0, y0 + h * 0.75, color);
+        self.raw_fill(x0 + 3.0, y0 + h * 0.15, x0 + 5.0, y0 + h * 0.85, color);
+        // Right waves
+        self.raw_fill(x0 + w - 5.0, y0 + h * 0.15, x0 + w - 3.0, y0 + h * 0.85, color);
+        self.raw_fill(x0 + w - 2.0, y0 + h * 0.25, x0 + w, y0 + h * 0.75, color);
     }
 
     // ---- text ----

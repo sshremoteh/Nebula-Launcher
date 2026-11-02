@@ -56,6 +56,7 @@ pub struct Config {
     pub device: crate::device_preferences::Settings,
     pub shader_source: crate::shader_catalog::Origin,
     pub mod_source: crate::shader_catalog::Origin,
+    pub haptic_feedback: bool,
 }
 
 pub use horizon_client::android_gamepad::InputMode as InputHost;
@@ -119,6 +120,9 @@ impl Config {
             .and_then(|bytes| serde_json::from_slice::<serde_json::Value>(&bytes).ok())
             .unwrap_or_default();
         config.device.migrate_missing(&value, &legacy);
+        if value.get("haptic_feedback").is_none() {
+            config.haptic_feedback = true;
+        }
         config
     }
     pub fn save(&self, home: &Path) -> Result<(), String> {

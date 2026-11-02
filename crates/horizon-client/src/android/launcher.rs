@@ -27,6 +27,16 @@ use winit::{
     window::{Window, WindowId},
 };
 
+#[derive(Clone, Copy)]
+pub(super) struct Ripple {
+    pub origin: [f32; 2],
+    pub rect: [f32; 4],
+    pub start: Instant,
+    pub duration: Duration,
+    pub max_radius: f32,
+    pub color: u32,
+}
+
 pub(super) struct Launcher {
     home: PathBuf,
     controller_edges: horizon_client::gamepad::Edges,
@@ -56,6 +66,7 @@ pub(super) struct Launcher {
     prepared_session: Option<PathBuf>,
     focus: Option<usize>,
     diagnostic_export: Option<mpsc::Receiver<std::result::Result<String, String>>>,
+    pub(super) ripples: Vec<Ripple>,
 }
 
 impl Launcher {
@@ -112,6 +123,7 @@ impl Launcher {
             prepared_session: None,
             focus: None,
             diagnostic_export: None,
+            ripples: Vec::new(),
         }
     }
 
@@ -615,12 +627,21 @@ impl ApplicationHandler for Launcher {
             }
         }
 
+        let active_motion = !self.ripples.is_empty()
+            || self.worker.is_some()
+            || self.drag.is_some()
+            || self.feedback.is_some();
+
         if let Some(window) = &self.window {
             window.request_redraw();
         }
-        events.set_control_flow(ControlFlow::WaitUntil(
-            Instant::now() + Duration::from_millis(100),
-        ));
+        if active_motion {
+            events.set_control_flow(ControlFlow::Poll);
+        } else {
+            events.set_control_flow(ControlFlow::WaitUntil(
+                Instant::now() + Duration::from_millis(50),
+            ));
+        }
     }
     fn exiting(&mut self, events: &ActiveEventLoop) {
         if let Some(game) = &mut self.game {

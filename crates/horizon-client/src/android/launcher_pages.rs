@@ -66,6 +66,7 @@ pub(super) enum Action {
     ChooseWorkerLimit(u32),
     PerformanceHints,
     GpuProfile,
+    ToggleHaptic,
 }
 
 pub(super) fn button(
@@ -77,14 +78,14 @@ pub(super) fn button(
     accent: bool,
 ) {
     let [x, y, w, h] = rect;
+    use horizon_client::ui_theme::md3;
+    let radius = (h * 0.4).min(14.0);
     if accent {
-        // Vibrant emerald gradient
-        ui.gradient(x, y, w, h, rgba(34, 197, 94, 255), rgba(16, 149, 74, 255));
-        ui.border(x, y, w, h, 6.0, rgba(74, 222, 128, 220));
+        ui.rounded(x, y, w, h, radius, md3::PRIMARY_CONTAINER);
+        ui.border(x, y, w, h, radius, md3::PRIMARY);
     } else {
-        // Modern glass slate gradient plate
-        ui.gradient(x, y, w, h, rgba(32, 40, 56, 230), rgba(20, 25, 36, 230));
-        ui.border(x, y, w, h, 6.0, rgba(58, 70, 94, 180));
+        ui.rounded(x, y, w, h, radius, md3::SURFACE_CONTAINER_HIGH);
+        ui.border(x, y, w, h, radius, md3::OUTLINE_VARIANT);
     }
     let padding = (w * 0.08).clamp(6.0, 16.0);
     let base = if w < 80.0 { 12.0 } else if h > 46.0 { 16.0 } else { 14.0 };
@@ -102,14 +103,15 @@ pub(super) fn button(
         x + padding,
         text_y,
         if accent {
-            rgba(255, 255, 255, 255)
+            md3::ON_PRIMARY_CONTAINER
         } else {
-            rgba(241, 245, 249, 255)
+            md3::ON_SURFACE
         },
         &label,
     );
     targets.push((rect, action));
 }
+
 fn toggle(
     ui: &mut Ui,
     targets: &mut Vec<([f32; 4], Action)>,
@@ -118,30 +120,51 @@ fn toggle(
     action: Action,
 ) {
     let [x, y, w, h] = rect;
+    use horizon_client::ui_theme::md3;
+
+    // MD3 Switch Track: 52 x 28dp, pill shape
+    let track_w = 52.0;
+    let track_h = 28.0;
+    let track_x = x + w - track_w - 4.0;
+    let track_y = y + (h - track_h) * 0.5;
+    let track_r = track_h * 0.5;
+
+    // Status text
+    let status_text = if on { "Вкл" } else { "Выкл" };
     ui.text(
         Face::Regular,
         14.0,
         x,
-        y + 11.0,
-        color::TEXT,
-        if on { "On" } else { "Off" },
+        y + (h - 14.0) * 0.5,
+        if on { md3::ON_SURFACE } else { md3::ON_SURFACE_VARIANT },
+        status_text,
     );
-    ui.rounded(
-        x + w - 52.0,
-        y + 8.0,
-        48.0,
-        24.0,
-        12.0,
-        if on { color::TEXT } else { color::HOVER },
-    );
-    ui.rounded(
-        x + w - if on { 26.0 } else { 50.0 },
-        y + 10.0,
-        20.0,
-        20.0,
-        10.0,
-        if on { color::BG } else { color::TEXT },
-    );
+
+    if on {
+        ui.rounded(track_x, track_y, track_w, track_h, track_r, md3::PRIMARY);
+    } else {
+        ui.rounded(track_x, track_y, track_w, track_h, track_r, md3::SURFACE_CONTAINER_HIGHEST);
+        ui.border(track_x, track_y, track_w, track_h, track_r, md3::OUTLINE);
+    }
+
+    // MD3 Switch Thumb: 22dp diameter circle
+    let thumb_sz = 22.0;
+    let thumb_pad = 3.0;
+    let thumb_x = if on {
+        track_x + track_w - thumb_sz - thumb_pad
+    } else {
+        track_x + thumb_pad
+    };
+    let thumb_y = track_y + (track_h - thumb_sz) * 0.5;
+
+    if on {
+        ui.rounded(thumb_x, thumb_y, thumb_sz, thumb_sz, thumb_sz * 0.5, md3::ON_PRIMARY);
+        // Miniature vector checkmark inside thumb
+        ui.check_icon(thumb_x + 5.0, thumb_y + 5.0, 12.0, md3::PRIMARY);
+    } else {
+        ui.rounded(thumb_x, thumb_y, thumb_sz, thumb_sz, thumb_sz * 0.5, md3::OUTLINE);
+    }
+
     targets.push(([x, y, w, h], action));
 }
 impl Launcher {
@@ -1176,6 +1199,11 @@ impl Launcher {
                     Action::DisplayHz,
                 ),
                 (
+                    "Тактильный отклик и вибрация",
+                    if c.haptic_feedback { "Вкл" } else { "Выкл" }.into(),
+                    Action::ToggleHaptic,
+                ),
+                (
                     "Performance hints",
                     if c.device.performance_hints {
                         "On (ADPF)"
@@ -1251,7 +1279,7 @@ impl Launcher {
                 );
                 if matches!(
                     action,
-                    Action::PerformanceHints | Action::Immersive | Action::Cutout
+                    Action::PerformanceHints | Action::Immersive | Action::Cutout | Action::ToggleHaptic
                 ) {
                     toggle(
                         &mut ui,
@@ -1266,6 +1294,7 @@ impl Launcher {
                             Action::PerformanceHints => c.device.performance_hints,
                             Action::Immersive => c.screen.immersive,
                             Action::Cutout => c.screen.avoid_cutout,
+                            Action::ToggleHaptic => c.haptic_feedback,
                             _ => c.device.gpu_profile,
                         },
                         action,
@@ -1500,6 +1529,29 @@ impl Launcher {
             );
         }
         crate::documents::draw_ui(&mut ui);
+
+        // Render all active Material Touch Ripples with hardware quad clipping
+        let now = std::time::Instant::now();
+        self.ripples.retain(|ripple| {
+            let elapsed = now.duration_since(ripple.start).as_secs_f32();
+            let total = ripple.duration.as_secs_f32();
+            if elapsed >= total {
+                return false;
+            }
+            let t = (elapsed / total).clamp(0.0, 1.0);
+            let eased = horizon_client::ui_theme::md3::emphasized_decelerate(t);
+            let r = ripple.max_radius * eased;
+            let alpha = ((1.0 - t) * 80.0) as u8;
+            ui.md3_ripple(
+                ripple.rect,
+                (ripple.origin[0], ripple.origin[1]),
+                r,
+                alpha,
+                ripple.color,
+            );
+            true
+        });
+
         ui.finish();
 
         if !r.render(&game::loading_frame(&b))? && !b.patches.is_empty() {
@@ -1525,13 +1577,32 @@ impl Launcher {
             ],
             |([x, y, w, h], _)| [x + w / 2.0, y + h / 2.0],
         );
-        let action = self
+        let target_match = self
             .targets
             .iter()
             .find(|([x, y, w, h], _)| {
                 (*x..*x + *w).contains(&p[0]) && (*y..*y + *h).contains(&p[1])
             })
-            .map(|(_, a)| *a);
+            .copied();
+        let action = target_match.map(|(_, a)| a);
+        if let Some(([tx, ty, tw, th], _)) = target_match {
+            let max_r = (tw * tw + th * th).sqrt() * 0.75;
+            self.ripples.push(super::Ripple {
+                origin: [p[0], p[1]],
+                rect: [tx, ty, tw, th],
+                start: std::time::Instant::now(),
+                duration: std::time::Duration::from_millis(260),
+                max_radius: max_r,
+                color: horizon_client::ui_theme::md3::PRIMARY,
+            });
+            if self.catalog.config.haptic_feedback {
+                crate::platform::vibrate(horizon_client::gamepad::Pulse {
+                    strong: 0.16,
+                    weak: 0.16,
+                    millis: 18,
+                });
+            }
+        }
         if self.catalog.busy() || crate::documents::busy() {
             return Ok(());
         }
@@ -1560,6 +1631,17 @@ impl Launcher {
         match action {
             Some(Action::ConfirmExit) => {
                 events.exit();
+            }
+            Some(Action::ToggleHaptic) => {
+                self.catalog.config.haptic_feedback ^= true;
+                if self.catalog.config.haptic_feedback {
+                    crate::platform::vibrate(horizon_client::gamepad::Pulse {
+                        strong: 0.25,
+                        weak: 0.25,
+                        millis: 25,
+                    });
+                }
+                self.catalog.config.save(&self.home)?;
             }
             Some(Action::Immersive) => {
                 self.catalog.config.screen.immersive ^= true;
