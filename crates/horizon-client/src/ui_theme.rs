@@ -117,6 +117,7 @@ enum Key {
     Glyph(Face, u16, u16),
     /// A quarter disc (`false`) or a 1px quarter ring of this radius in pixels.
     Corner(u16, bool),
+    AppIcon,
 }
 #[derive(Clone, Copy)]
 struct Cached {
@@ -192,6 +193,29 @@ impl Cache {
             .iter()
             .flat_map(|a| [255, 255, 255, (a.clamp(0.0, 1.0) * 255.0).round() as u8])
             .collect();
+        self.pending.push(crate::font::Patch {
+            x: ax,
+            y: ay,
+            width: w,
+            height: h,
+            rgba,
+        });
+        let (aw, ah) = (atlas.width as f32, atlas.height as f32);
+        Some(Rect {
+            u0: ax as f32 / aw,
+            v0: ay as f32 / ah,
+            u1: (ax + w) as f32 / aw,
+            v1: (ay + h) as f32 / ah,
+            w,
+            h,
+        })
+    }
+    fn upload_rgba(&mut self, atlas: &HudAtlas, w: u32, h: u32, rgba: Vec<u8>) -> Option<Rect> {
+        let (x, y, region) = self.place(atlas, w, h)?;
+        let (ax, ay) = (
+            (region.u0 * atlas.width as f32).round() as u32 + x,
+            (region.v0 * atlas.height as f32).round() as u32 + y,
+        );
         self.pending.push(crate::font::Patch {
             x: ax,
             y: ay,
@@ -415,6 +439,25 @@ impl<'a> Ui<'a> {
             self.corner_quad(rect, x0, y1 - r, r, (false, true), color);
         }
     }
+    /// A filled rectangle with a vertical gradient from top to bottom.
+    pub fn gradient(&mut self, x: f32, y: f32, w: f32, h: f32, top: u32, bottom: u32) {
+        if top >> 24 == 0 && bottom >> 24 == 0 {
+            return;
+        }
+        let (x0, y0, x1, y1) = (
+            self.px_x(x),
+            self.px_y(y),
+            self.px_x(x + w),
+            self.px_y(y + h),
+        );
+        let s = self.scale;
+        self.batch.fill_gradient(
+            self.atlas,
+            (x0 / s, y0 / s, (x1 - x0) / s, (y1 - y0) / s),
+            top,
+            bottom,
+        );
+    }
     /// A filled rectangle with rounded corners.
     pub fn rounded(&mut self, x: f32, y: f32, w: f32, h: f32, radius: f32, color: u32) {
         if color >> 24 == 0 {
@@ -461,6 +504,79 @@ impl<'a> Ui<'a> {
         self.raw_fill(x0, y0 + r, x0 + 1.0, y1 - r, color);
         self.raw_fill(x1 - 1.0, y0 + r, x1, y1 - r, color);
         self.corners(x0, y0, x1, y1, r, true, color);
+    }
+
+    /// Draw a 96x96 or arbitrary RGBA icon cached in the atlas.
+    pub fn draw_icon_rgba(
+        &mut self,
+        x: f32,
+        y: f32,
+        w: f32,
+        h: f32,
+        rgba: &'static [u8],
+        img_w: u32,
+        img_h: u32,
+    ) {
+        let atlas = self.atlas;
+        let rect = with_cache(atlas, |c| {
+            if let Some(cached) = c.entries.get(&Key::AppIcon) {
+                return cached.rect;
+            }
+            let r = c.upload_rgba(atlas, img_w, img_h, rgba.to_vec());
+            c.entries.insert(Key::AppIcon, Cached { rect: r, left: 0.0, top: 0.0 });
+            r
+        });
+        if let Some(rect) = rect {
+            let (x0, y0) = (self.px_x(x), self.px_y(y));
+            let (x1, y1) = (self.px_x(x + w), self.px_y(y + h));
+            let s = self.scale;
+            self.batch.rect_uv(
+                x0 / s,
+                y0 / s,
+                (x1 - x0) / s,
+                (y1 - y0) / s,
+                rect,
+                0xffffffff,
+            );
+        }
+    }
+
+    /// Draw a crisp vector play triangle pointing to the right.
+    pub fn play_triangle(&mut self, x: f32, y: f32, size: f32, color: u32) {
+        if color >> 24 == 0 {
+            return;
+        }
+        let steps = (size * self.density).round() as i32;
+        let x0 = self.px_x(x);
+        let y0 = self.px_y(y);
+        for i in 0..steps {
+            let frac = i as f32 / steps.max(1) as f32;
+            let half_h = (1.0 - frac) * (size * self.density * 0.5);
+            let top = (size * self.density * 0.5) - half_h;
+            let bottom = (size * self.density * 0.5) + half_h;
+            self.raw_fill(x0 + i as f32, y0 + top, x0 + i as f32 + 1.0, y0 + bottom, color);
+        }
+    }
+
+    /// Draw a vector sliders / settings icon.
+    pub fn sliders_icon(&mut self, x: f32, y: f32, w: f32, h: f32, color: u32) {
+        if color >> 24 == 0 {
+            return;
+        }
+        let (x0, y0) = (self.px_x(x), self.px_y(y));
+        let (w_px, h_px) = (w * self.density, h * self.density);
+        let bar_h = (h_px / 6.0).max(1.0);
+        // Line 1
+        self.raw_fill(x0, y0, x0 + w_px, y0 + bar_h, color);
+        self.raw_fill(x0 + w_px * 0.2, y0 - bar_h, x0 + w_px * 0.45, y0 + bar_h * 2.0, color);
+        // Line 2
+        let y1 = y0 + (h_px - bar_h) * 0.5;
+        self.raw_fill(x0, y1, x0 + w_px, y1 + bar_h, color);
+        self.raw_fill(x0 + w_px * 0.55, y1 - bar_h, x0 + w_px * 0.8, y1 + bar_h * 2.0, color);
+        // Line 3
+        let y2 = y0 + h_px - bar_h;
+        self.raw_fill(x0, y2, x0 + w_px, y2 + bar_h, color);
+        self.raw_fill(x0 + w_px * 0.35, y2 - bar_h, x0 + w_px * 0.6, y2 + bar_h * 2.0, color);
     }
 
     // ---- text ----

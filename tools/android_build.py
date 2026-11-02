@@ -19,7 +19,16 @@ TARGETS = {'x86_64': 'x86_64-linux-android', 'arm64-v8a': 'aarch64-linux-android
 
 
 def latest(directory):
-    return max(directory.iterdir(), key=lambda p: tuple(int(v) for v in p.name.split('.')))
+    candidates = []
+    if directory.is_dir():
+        for p in directory.iterdir():
+            try:
+                candidates.append((tuple(int(v) for v in p.name.split('.')), p))
+            except (ValueError, TypeError):
+                continue
+    if not candidates:
+        raise FileNotFoundError(f"No versioned subdirectories found in {directory}")
+    return max(candidates, key=lambda c: c[0])[1]
 
 
 def run(command, **kwargs):

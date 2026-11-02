@@ -293,7 +293,7 @@ pub fn cache_dir() -> Option<std::path::PathBuf> {
 }
 
 pub fn open_repository() -> bool {
-    open_url("https://github.com/Vasysik/horizon-android")
+    open_url("https://github.com/sshremoteh/Nebula-Launcher")
 }
 /// Browse our SAF directory through the system file manager, never a private path.
 pub fn open_documents(id: &str) -> bool {
@@ -418,7 +418,7 @@ fn clipboard_write(text: &str, sensitive: bool) -> bool {
                 &[JValue::Object(&name)],
             )?
             .l()?;
-        let label = JObject::from(env.new_string("Horizon")?);
+        let label = JObject::from(env.new_string("Nebula")?);
         let value = JObject::from(env.new_string(text)?);
         let clip = env
             .call_static_method(

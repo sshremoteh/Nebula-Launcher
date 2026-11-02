@@ -152,14 +152,22 @@ pub enum Page {
     Installed,
     Settings,
 }
+#[allow(dead_code)]
 impl Page {
     pub const ALL: [Self; 6] = [
         Self::Play,
-        Self::Mods,
+        Self::Settings,
         Self::Packs,
         Self::Shaders,
+        Self::Mods,
         Self::Installed,
+    ];
+    pub const SETTINGS_TABS: [Self; 5] = [
         Self::Settings,
+        Self::Packs,
+        Self::Shaders,
+        Self::Mods,
+        Self::Installed,
     ];
     pub fn name(self) -> &'static str {
         match self {
@@ -169,6 +177,16 @@ impl Page {
             Self::Shaders => "Shaders",
             Self::Installed => "Installed",
             Self::Settings => "Settings",
+        }
+    }
+    pub fn tab_title(self) -> &'static str {
+        match self {
+            Self::Play => "Главная",
+            Self::Settings => "Параметры",
+            Self::Packs => "Ресурспаки",
+            Self::Shaders => "Шейдеры",
+            Self::Mods => "Моды",
+            Self::Installed => "Установленное",
         }
     }
     pub fn is_catalog(self) -> bool {
@@ -680,9 +698,17 @@ impl Catalog {
             _ => &mut self.query,
         };
         match out {
-            Output::Text(s) => field.push_str(&s),
+            Output::Text(s) => {
+                field.push_str(&s);
+                if self.editing == Some("name") {
+                    let _ = self.config.save(home);
+                }
+            }
             Output::Backspace => {
                 field.pop();
+                if self.editing == Some("name") {
+                    let _ = self.config.save(home);
+                }
             }
             Output::Enter | Output::Close => {
                 if self.editing == Some("render_scale") {
