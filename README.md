@@ -1,63 +1,63 @@
 <div align="center">
 
-<img src="icon.jpg" alt="Nebula Launcher Logo" width="130" style="border-radius: 28px; box-shadow: 0 12px 32px rgba(129, 140, 248, 0.4);" />
+<img src="icon.jpg" alt="Nebula Launcher Logo" width="120" style="border-radius: 24px;" />
 
-# ✨ Nebula Launcher ✨
-### Minecraft: Java Edition 26.3 для Android на чистом Rust
+# Nebula Launcher
+### Клиент Minecraft: Java Edition 26.3 для Android на Rust
 
-[![Release](https://img.shields.io/badge/Release-v1.0-brightgreen.svg?style=for-the-badge&logo=android)](https://github.com/sshremoteh/Nebula-Launcher/releases/tag/v1.0)
-[![Android](https://img.shields.io/badge/Android-9.0--15+-blue.svg?style=for-the-badge&logo=android)](https://github.com/sshremoteh/Nebula-Launcher)
-[![Arch](https://img.shields.io/badge/Architecture-ARM64--v8a-orange.svg?style=for-the-badge&logo=arm)](https://github.com/sshremoteh/Nebula-Launcher)
-[![Engine](https://img.shields.io/badge/Rust-wgpu%20%7C%20Vulkan-red.svg?style=for-the-badge&logo=rust)](https://github.com/sshremoteh/Nebula-Launcher)
-[![Website](https://img.shields.io/badge/Website-GitHub%20Pages-blueviolet.svg?style=for-the-badge&logo=github)](https://sshremoteh.github.io/Nebula-Launcher/)
+[![Release](https://img.shields.io/badge/Release-v1.0-22c55e.svg?style=flat-square&logo=android)](https://github.com/sshremoteh/Nebula-Launcher/releases/tag/v1.0)
+[![Android](https://img.shields.io/badge/Android-9.0--15+-3b82f6.svg?style=flat-square&logo=android)](https://github.com/sshremoteh/Nebula-Launcher)
+[![Arch](https://img.shields.io/badge/Architecture-ARM64--v8a-f97316.svg?style=flat-square&logo=arm)](https://github.com/sshremoteh/Nebula-Launcher)
+[![Engine](https://img.shields.io/badge/Rust-wgpu%20%2F%20Vulkan-ef4444.svg?style=flat-square&logo=rust)](https://github.com/sshremoteh/Nebula-Launcher)
+[![Website](https://img.shields.io/badge/Site-GitHub%20Pages-8b5cf6.svg?style=flat-square&logo=github)](https://sshremoteh.github.io/Nebula-Launcher/)
 
 <p align="center">
-  <b>Высокопроизводительный нативный клиент Minecraft: Java Edition для Android смартфонов и планшетов.</b><br>
-  Непревзойденный FPS на Vulkan, сенсорное управление Bedrock Touch, поддержка Java серверов и моддинга.
+  Нативный клиент Minecraft: Java Edition для Android-устройств.<br>
+  Рендеринг на базе Vulkan и OpenGL ES 3.0, сенсорное управление Bedrock Touch, поддержка Java-серверов.
 </p>
 
-[📥 **СКАЧАТЬ APK (v1.0 Release)**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk) • [🌐 **Официальный сайт**](https://sshremoteh.github.io/Nebula-Launcher/) • [📝 **Список изменений**](https://github.com/sshremoteh/Nebula-Launcher/releases)
+[**Скачать APK (v1.0 Release)**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk) • [**Сайт проекта**](https://sshremoteh.github.io/Nebula-Launcher/) • [**Релизы**](https://github.com/sshremoteh/Nebula-Launcher/releases)
 
 ---
 
 </div>
 
-## 🌟 Ключевые особенности
+## Возможности
 
 <table>
   <tr>
     <td width="50%">
-      <h3>🚀 Невероятная производительность</h3>
+      <h3>Движок и рендеринг</h3>
       <ul>
-        <li>Движок полностью переписан на <b>Rust</b> с использованием <code>wgpu</code>.</li>
-        <li>Аппаратное ускорение через <b>Vulkan</b> и <b>OpenGL ES 3.0</b>.</li>
-        <li>Стабильные <b>60–120 FPS</b> и потребление ОЗУ от 2.5 ГБ.</li>
+        <li>Нативный бинарный код на <b>Rust</b> через <code>wgpu</code> (без JVM-эмуляции в интерфейсе).</li>
+        <li>Поддержка графических бэкендов <b>Vulkan</b> и <b>OpenGL ES 3.0</b>.</li>
+        <li>Частота кадров до 60–120 FPS в зависимости от чипсета, потребление ОЗУ от 2.5 ГБ.</li>
       </ul>
     </td>
     <td width="50%">
-      <h3>🎮 Сенсорное управление Bedrock Touch</h3>
+      <h3>Сенсорное управление Bedrock Touch</h3>
       <ul>
-        <li>4 схемы управления: аналоговый джойстик или классический D-Pad.</li>
-        <li>Прицеливание тапом по экрану или перекрестием.</li>
-        <li>Свободное перемещение, изменение размера и прозрачности кнопок.</li>
+        <li>4 схемы ввода: аналоговый джойстик или кнопочный D-Pad.</li>
+        <li>Прицеливание касанием по экрану или фиксированным перекрестием.</li>
+        <li>Настройка позиций, размеров и прозрачности экранных кнопок.</li>
       </ul>
     </td>
   </tr>
   <tr>
     <td width="50%">
-      <h3>🌐 Сетевая игра Java Edition</h3>
+      <h3>Сетевая игра Java Edition</h3>
       <ul>
-        <li>Прямое подключение к Java-серверам (Hypixel, локальные сервера LAN).</li>
-        <li>Поддержка одиночной игры без подключения к интернету.</li>
-        <li>Удобное сохранение и экспорт миров через системный проводник.</li>
+        <li>Подключение к серверам Minecraft Java (Hypixel, LAN-серверы, локальная сеть).</li>
+        <li>Автономный оффлайн-режим для одиночной игры.</li>
+        <li>Импорт и экспорт миров через системный Storage Access Framework.</li>
       </ul>
     </td>
     <td width="50%">
-      <h3>🌌 Современный лаунчер Nebula 1.0</h3>
+      <h3>Лаунчер Nebula 1.0</h3>
       <ul>
-        <li>Глубокий космический градиентный дизайн и неоновое свечение.</li>
-        <li>Аппаратные векторные GPU-иконки без артефактов и битых символов.</li>
-        <li>Детальный прогресс загрузки: точные проценты, мегабайты и файлы.</li>
+        <li>Двухпанельный адаптивный интерфейс для альбомного и портретного режимов.</li>
+        <li>Аппаратная отрисовка векторных элементов без растровых артефактов.</li>
+        <li>Детальный прогресс-бар: процент каждого этапа, мегабайты и счетчик файлов.</li>
       </ul>
     </td>
   </tr>
@@ -65,72 +65,67 @@
 
 ---
 
-## 📸 Скриншоты геймплея на телефоне
+## Скриншоты на устройстве
 
-| Джойстик и перекрестие | D-Pad и сенсорное прицеливание |
+| Джойстик и перекрестие | D-Pad и касание |
 | :---: | :---: |
-| ![Fox in a forest](docs/media/android/joystick-fox.png) | ![River and forest](docs/media/android/dpad-river.png) |
+| ![Джойстик и перекрестие](docs/media/android/joystick-fox.png) | ![D-Pad и касание](docs/media/android/dpad-river.png) |
 
-| Заснеженные биомы | Hypixel Arcade (Java Multiplayer) |
+| Заснеженный ландшафт | Hypixel Arcade (Java Multiplayer) |
 | :---: | :---: |
-| ![Snow landscape](docs/media/android/snow-landscape.png) | ![Hypixel Arcade](docs/media/android/hypixel-arcade.png) |
+| ![Снежный ландшафт](docs/media/android/snow-landscape.png) | ![Hypixel Arcade](docs/media/android/hypixel-arcade.png) |
 
-| Вид от 3-го лица | Пустынный ландшафт |
+| Вид от третьего лица | Пустыня |
 | :---: | :---: |
-| ![Third-person desert](docs/media/android/third-person-desert.png) | ![Desert panorama](docs/media/android/desert-panorama.png) |
+| ![Вид от третьего лица](docs/media/android/third-person-desert.png) | ![Пустыня](docs/media/android/desert-panorama.png) |
 
 ---
 
-## 📲 Установка на Android
+## Установка
 
-1. Скачайте актуальный установочный файл [**Nebula-Launcher-v1.0.apk**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk).
-2. Запустите установку APK на вашем Android-устройстве. При необходимости разрешите «Установку из неизвестных источников».
-3. Откройте **Nebula Launcher**.
-4. Введите свой никнейм в левой панели (сохраняется автоматически).
-5. Нажмите кнопку **«СКАЧАТЬ MINECRAFT 26.3»** для первой загрузки игровых ресурсов (прогресс загрузки отображается в реальном времени с точными процентами и МБ).
-6. После завершения загрузки нажмите большую зеленую кнопку **«И Г Р А Т Ь»**!
+1. Скачайте файл [**Nebula-Launcher-v1.0.apk**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk).
+2. Установите APK на устройство (при запросе разрешите установку из используемого источника).
+3. Запустите **Nebula Launcher**.
+4. Укажите никнейм в левой панели (сохраняется автоматически).
+5. Нажмите **«СКАЧАТЬ MINECRAFT 26.3»** для начальной распаковки игровых данных.
+6. Нажмите **«И Г Р А Т Ь»** для запуска клиента.
 
 ---
 
-## ⚙️ Системные требования
+## Системные требования
 
-| Параметр | Минимальные требования | Рекомендуемые |
+| Параметр | Минимум | Рекомендуется |
 | :--- | :--- | :--- |
-| **ОС** | Android 9.0 (Pie, API 28) | Android 12–15+ (API 31–35) |
+| **ОС** | Android 9.0 (API 28) | Android 12–15+ (API 31–35) |
 | **Архитектура** | 64-bit ARM (`arm64-v8a`) | 64-bit ARM (`arm64-v8a`) |
-| **Оперативная память** | 3 ГБ RAM | 6–8 ГБ RAM и выше |
-| **Графический API** | OpenGL ES 3.0 | Vulkan 1.1+ |
-| **Память устройства** | ~500 МБ свободного места | 2 ГБ (для миров и паков) |
+| **Оперативная память** | 3 ГБ | 6–8 ГБ |
+| **Графика** | OpenGL ES 3.0 | Vulkan 1.1+ |
+| **Хранилище** | 500 МБ свободного места | 2 ГБ |
 
 ---
 
-## 🛠 Самостоятельная сборка проекта (Linux / Termux)
+## Сборка из исходного кода
 
-В репозиторий включен автономный скрипт [`build.sh`](build.sh):
+Сборка выполняется через автономный скрипт [`build.sh`](build.sh):
 
 ```bash
-# Клонирование репозитория
 git clone https://github.com/sshremoteh/Nebula-Launcher.git
 cd Nebula-Launcher
 
-# Быстрая проверка компиляции кода
+# Проверка синтаксиса и типов
 ./build.sh check
 
-# Сборка и упаковка оптимизированного APK (arm64-v8a)
+# Компиляция и сборка подписанного APK (arm64-v8a)
 ./build.sh apk fast
 
-# Готовый подписанный файл появится в:
+# Собранный файл:
 # .local/android/apk/nebula-launcher.apk
 ```
 
 ---
 
-## 📄 Лицензия и благодарности
+## Лицензия
 
-* Проект распространяется по лицензии открытого исходного кода.
-* Движок основан на исследовательской базе Horizon Rust Client для Minecraft Java Edition 26.3.
-* Все права на Minecraft принадлежат Mojang AB / Microsoft. Данный проект не связан с Mojang AB.
-
-<div align="center">
-  <sub>Создано с ❤️ для сообщества любителей мобильного Minecraft.</sub>
-</div>
+* Исходный код проекта распространяется под открытыми лицензиями (MIT / Apache-2.0 / GPL-3.0 в зависимости от компонентов).
+* Клиент основан на открытом проекте Horizon (движок Minecraft Java 26.3 на Rust).
+* Minecraft является товарным знаком Mojang AB / Microsoft. Проект не связан с Mojang AB.
