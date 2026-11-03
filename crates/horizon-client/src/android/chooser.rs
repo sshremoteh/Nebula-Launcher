@@ -276,15 +276,17 @@ impl Chooser {
         }
     }
     pub(super) fn navigation(&self, width: f32) -> Vec<([f32; 4], Action)> {
+        let content_w = 640.0f32.min(width - 48.0);
+        let margin = (width - content_w) * 0.5;
         self.choices
             .iter()
             .enumerate()
             .map(|(i, (_, _, action, _))| {
                 (
                     [
-                        32.0,
+                        margin,
                         137.0 + i as f32 * 84.0 - self.scroll,
-                        width - 64.0,
+                        content_w,
                         76.0,
                     ],
                     *action,
@@ -303,10 +305,12 @@ impl Chooser {
         let (w, h) = (ui.w, ui.h);
         targets.clear();
         ui.rounded(0.0, 0.0, w, h, 0.0, color::BG);
-        ui.text(Face::Medium, 28.0, 32.0, 35.0, color::TEXT, self.title);
-        ui.text(Face::Regular, 15.0, 32.0, 85.0, color::MUTED, self.help);
+        let content_w = 640.0f32.min(w - 48.0);
+        let margin = (w - content_w) * 0.5;
+        ui.text(Face::Medium, 28.0, margin, 35.0, color::TEXT, self.title);
+        ui.text(Face::Regular, 15.0, margin, 85.0, color::MUTED, self.help);
         if let Some(device) = &self.device {
-            ui.text(Face::Regular, 13.0, 32.0, 111.0, color::MUTED, device);
+            ui.text(Face::Regular, 13.0, margin, 111.0, color::MUTED, device);
         }
         let top = 137.0;
         let bottom = h - 100.0;
@@ -319,20 +323,20 @@ impl Chooser {
             if y < top || y + 76.0 > bottom {
                 continue;
             }
-            ui.rounded(34.0, y + 10.0, 22.0, 22.0, 11.0, color::TEXT);
-            ui.rounded(36.0, y + 12.0, 18.0, 18.0, 9.0, color::BG);
+            ui.rounded(margin + 2.0, y + 10.0, 22.0, 22.0, 11.0, color::TEXT);
+            ui.rounded(margin + 4.0, y + 12.0, 18.0, 18.0, 9.0, color::BG);
             if *selected {
-                ui.rounded(40.0, y + 16.0, 10.0, 10.0, 5.0, color::TEXT);
+                ui.rounded(margin + 8.0, y + 16.0, 10.0, 10.0, 5.0, color::TEXT);
             }
-            ui.text(Face::Medium, 19.0, 80.0, y + 8.0, color::TEXT, label);
-            ui.text(Face::Regular, 14.0, 80.0, y + 40.0, color::MUTED, detail);
-            ui.rounded(32.0, y + 75.0, w - 64.0, 1.0, 0.0, color::BORDER);
-            targets.push(([32.0, y, w - 64.0, 76.0], *action));
+            ui.text(Face::Medium, 19.0, margin + 48.0, y + 8.0, color::TEXT, label);
+            ui.text(Face::Regular, 14.0, margin + 48.0, y + 40.0, color::MUTED, detail);
+            ui.rounded(margin, y + 75.0, content_w, 1.0, 0.0, color::BORDER);
+            targets.push(([margin, y, content_w, 76.0], *action));
         }
         button(
             ui,
             targets,
-            [32.0, h - 78.0, 160.0, 44.0],
+            [margin, h - 78.0, 160.0, 44.0],
             "Cancel",
             Action::Dismiss,
             false,

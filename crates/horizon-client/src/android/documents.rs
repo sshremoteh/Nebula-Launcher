@@ -196,6 +196,40 @@ pub extern "system" fn document_result(
         notice(format!("Import failed: {error}"), false);
     }
 }
+fn pack_hmod(from_dir: &std::path::Path, to_file: &std::path::Path) -> Result<()> {
+    let file = std::fs::File::create(to_file)?;
+    let mut zip = zip::ZipWriter::new(file);
+    let options = zip::write::SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated);
+
+    fn add_dir_to_zip<W: std::io::Write + std::io::Seek>(
+        zip: &mut zip::ZipWriter<W>,
+        base: &std::path::Path,
+        current: &std::path::Path,
+        options: zip::write::SimpleFileOptions,
+    ) -> Result<()> {
+        for entry in std::fs::read_dir(current)? {
+            let entry = entry?;
+            let path = entry.path();
+            let relative = path.strip_prefix(base).map_err(|e| e.to_string())?;
+            let name = relative.to_string_lossy().replace('\\', "/");
+            if path.is_dir() {
+                zip.add_directory(&format!("{name}/"), options)?;
+                add_dir_to_zip(zip, base, &path, options)?;
+            } else {
+                zip.start_file(&name, options)?;
+                let mut f = std::fs::File::open(&path)?;
+                std::io::copy(&mut f, zip)?;
+            }
+        }
+        Ok(())
+    }
+
+    add_dir_to_zip(&mut zip, from_dir, from_dir, options)?;
+    zip.finish()?;
+    Ok(())
+}
+
 fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()> {
     if !content_files::plain_name(&name) || !request.kind.accepts(&name) {
         return Err("Selected file has the wrong extension for this folder".into());
@@ -219,7 +253,8 @@ fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()>
         }
     }
     let stamp = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
-    let staged = request.cache.join(format!(".import-{stamp}.part"));
+    let mut staged = request.cache.join(format!(".import-{stamp}.part"));
+    let mut staged_for_cleanup = staged.clone();
     let result = (|| -> Result<()> {
         let mut output = std::fs::OpenOptions::new()
             .write(true)
@@ -238,8 +273,44 @@ fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()>
         let native_shader = content_files::validate(&staged, request.kind, &name, || {
             CANCEL.load(Ordering::Relaxed)
         })?;
+        let mut mod_info: Option<(String, String)> = None;
         let name = if request.kind == Kind::Mods {
-            format!("{}.hmod", horizon_mods::Package::read(&staged)?.manifest.id)
+            if let Ok(pkg) = horizon_mods::Package::read(&staged) {
+                let id = pkg.manifest.id;
+                let title = pkg.manifest.name;
+                mod_info = Some((id.clone(), title));
+                format!("{id}.hmod")
+            } else {
+                notice("Porting Java mod with Horizon Port-Pack...", false);
+                let temp_out = request.cache.join(format!(".check-{stamp}"));
+                let _ = std::fs::remove_dir_all(&temp_out);
+                let check = horizon_port_pack::check::check(&staged, &temp_out)
+                    .map_err(|e| format!("Could not port Java mod: {e}"))?;
+                if check.verdict == horizon_port_pack::check::Verdict::No {
+                    let _ = std::fs::remove_dir_all(&temp_out);
+                    let reason = if check.summary.is_empty() {
+                        "Incompatible mod code".to_string()
+                    } else {
+                        check.summary
+                    };
+                    return Err(format!("Mod {} cannot run in Horizon: {reason}", check.name).into());
+                }
+                let carry = temp_out.join("carry");
+                if !carry.join("horizon-mod.toml").is_file() {
+                    let _ = std::fs::remove_dir_all(&temp_out);
+                    return Err("Ported mod did not produce a valid package manifest".into());
+                }
+                let staged_hmod = request.cache.join(format!(".import-{stamp}.hmod"));
+                pack_hmod(&carry, &staged_hmod)?;
+                let _ = std::fs::remove_dir_all(&temp_out);
+                let _ = std::fs::remove_file(&staged);
+                staged = staged_hmod;
+                staged_for_cleanup = staged.clone();
+                let id = check.mod_id;
+                let title = check.name;
+                mod_info = Some((id.clone(), title));
+                format!("{id}.hmod")
+            }
         } else if native_shader || name.to_ascii_lowercase().ends_with(".hshader") {
             let pack = horizon_shader_api::Pack::read(&staged)?;
             horizon_shader_api::check(&pack).map_err(|e| format!("Invalid shader pack: {e:?}"))?;
@@ -268,19 +339,30 @@ fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()>
             );
         } else {
             std::fs::rename(&staged, &target)?;
-            imported(
-                format!(
-                    "Imported {} into {}. Enable it in game settings.",
-                    target.file_name().unwrap_or_default().to_string_lossy(),
-                    request.kind.label()
-                ),
-                request.kind,
-            );
+            if let Some((id, title)) = mod_info {
+                let mut list = horizon_client::mod_list::ModList::load(&request.home);
+                list.enabled.insert(id.clone());
+                let _ = list.save(&request.home);
+                let _ = crate::catalog::set_mod_enabled(&request.home, &id, true);
+                imported(
+                    format!("Successfully ported and enabled mod {title} ({id})."),
+                    request.kind,
+                );
+            } else {
+                imported(
+                    format!(
+                        "Imported {} into {}. Enable it in game settings.",
+                        target.file_name().unwrap_or_default().to_string_lossy(),
+                        request.kind.label()
+                    ),
+                    request.kind,
+                );
+            }
         }
         Ok(())
     })();
     if result.is_err() {
-        let _ = std::fs::remove_file(staged);
+        let _ = std::fs::remove_file(staged_for_cleanup);
     }
     result
 }
@@ -343,6 +425,16 @@ pub fn resolve(choice: Choice) {
             }
         }
         std::fs::rename(&c.staged, &c.target)?;
+        if c.kind == Kind::Mods {
+            if let Some(id) = c.target.file_stem().and_then(|s| s.to_str()) {
+                if let Some(home) = c.target.parent().and_then(|p| p.parent()) {
+                    let mut list = horizon_client::mod_list::ModList::load(home);
+                    list.enabled.insert(id.to_string());
+                    let _ = list.save(home);
+                    let _ = crate::catalog::set_mod_enabled(home, id, true);
+                }
+            }
+        }
         Ok(())
     })();
     match result {

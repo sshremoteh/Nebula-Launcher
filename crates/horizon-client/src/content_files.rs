@@ -30,7 +30,7 @@ impl Kind {
     pub fn accepts(self, name: &str) -> bool {
         let lower = name.to_ascii_lowercase();
         match self {
-            Self::Mods => lower.ends_with(".hmod"),
+            Self::Mods => lower.ends_with(".hmod") || lower.ends_with(".jar") || lower.ends_with(".zip"),
             Self::Packs => lower.ends_with(".zip"),
             Self::Shaders => lower.ends_with(".zip") || lower.ends_with(".hshader"),
         }
@@ -63,8 +63,8 @@ pub fn validate(
         );
     }
     let file = std::fs::File::open(path)?;
-    if kind == Kind::Mods && file.metadata()?.len() > 32 << 20 {
-        return Err("Horizon mod exceeds 32 MiB".into());
+    if kind == Kind::Mods && file.metadata()?.len() > 128 << 20 {
+        return Err("Mod exceeds 128 MiB".into());
     }
     if file.metadata()?.len() > MAX_INPUT {
         return Err("Import exceeds 256 MiB".into());
@@ -79,6 +79,7 @@ pub fn validate(
     let mut shader = false;
     let mut native_shader = false;
     let mut manifest = false;
+    let mut java_mod = false;
     let mut buffer = [0u8; 65536];
     for i in 0..zip.len() {
         if cancelled() {
@@ -100,7 +101,7 @@ pub fn validate(
         total = total
             .checked_add(entry.size())
             .ok_or("Archive size overflow")?;
-        if total > MAX_EXPANDED || kind == Kind::Mods && total > 64 << 20 {
+        if total > MAX_EXPANDED || kind == Kind::Mods && total > 256 << 20 {
             return Err("Expanded archive exceeds 512 MiB".into());
         }
         pack |= raw == "pack.mcmeta";
@@ -112,6 +113,12 @@ pub fn validate(
                     .iter()
                     .any(|ext| raw.ends_with(&format!(".{ext}")));
         manifest |= raw == "horizon-mod.toml";
+        java_mod |= raw == "fabric.mod.json"
+            || raw == "META-INF/mods.toml"
+            || raw == "META-INF/neoforge.mods.toml"
+            || raw == "mcmod.info"
+            || raw.starts_with("assets/")
+            || raw.starts_with("data/");
         let expected = entry.size();
         if raw == "pack.mcmeta" && expected > 1 << 20 {
             return Err("Pack metadata is too large".into());
@@ -148,7 +155,7 @@ pub fn validate(
     if !match kind {
         Kind::Packs => pack,
         Kind::Shaders => shader,
-        Kind::Mods => manifest,
+        Kind::Mods => manifest || java_mod,
     } {
         return Err(format!(
             "Archive is not a {} package (required files must be at the ZIP root)",
@@ -156,7 +163,7 @@ pub fn validate(
         )
         .into());
     }
-    if kind == Kind::Mods {
+    if kind == Kind::Mods && manifest {
         // Accept both sandboxed code and upstream content-only packages. The
         // shared parser requires mod.wasm unless the manifest grants registries.
         horizon_mods::Package::read(path).map_err(|e| format!("Invalid Horizon mod: {e}"))?;

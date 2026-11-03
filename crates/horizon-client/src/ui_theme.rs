@@ -416,8 +416,8 @@ impl<'a> Ui<'a> {
                 cursor.0 * ui.scale / ui.density,
                 cursor.1 * ui.scale / ui.density,
             );
-        } else if ph < 700.0 {
-            ui.density = (pw / 1040.0).min(ph / 700.0).clamp(0.5, 4.0);
+        } else {
+            ui.density = (pw / 1120.0).min(ph / 700.0).clamp(1.0, 4.0);
             ui.w = pw / ui.density;
             ui.h = ph / ui.density;
             ui.cursor = (

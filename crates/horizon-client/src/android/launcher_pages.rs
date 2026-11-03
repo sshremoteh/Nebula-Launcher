@@ -270,45 +270,51 @@ impl Launcher {
             .as_millis();
         let pulse = ((now_millis % 2400) as f32 / 2400.0 * std::f32::consts::TAU).sin() * 0.5 + 0.5;
 
+        let compact = w < 620.0 || h > w;
+        let max_content_w = 980.0f32.min(w - 48.0);
+        let content_margin = if compact { 16.0 } else { (w - max_content_w) * 0.5 };
+        let page = self.catalog.page;
+
+        let header_x = if compact { 20.0 } else { content_margin };
         ui.text(
             Face::SemiBold,
             if w < 400.0 { 18.0 } else if w < 700.0 { 22.0 } else { 26.0 },
-            24.0,
-            if w < 620.0 || h > w { 16.0 } else { 22.0 },
+            header_x,
+            if compact { 16.0 } else { 22.0 },
             rgba(248, 250, 252, 255),
             "NEBULA LAUNCHER • 1.0 Release",
         );
+        let acct_w = if compact { 194.0 } else { 240.0 };
+        let acct_x = if compact { w - acct_w - 16.0 } else { content_margin + max_content_w - acct_w };
         button(
             &mut ui,
             &mut self.targets,
             [
-                if w < 700.0 { w - 210.0 } else { w - 290.0 },
-                if w < 620.0 || h > w { 12.0 } else { 16.0 },
-                if w < 700.0 { 194.0 } else { 266.0 },
-                if w < 620.0 || h > w { 34.0 } else { 38.0 },
+                acct_x,
+                if compact { 12.0 } else { 16.0 },
+                acct_w,
+                if compact { 34.0 } else { 38.0 },
             ],
             &self.login.status(&self.catalog.config.name),
             Action::Account,
             self.login.signed_in,
         );
-        let compact = w < 620.0 || h > w;
-        let page = self.catalog.page;
 
         // Sub-navigation bar inside Settings (when not in Main Menu)
         if page != Page::Play {
-            let tab_margin = if compact { 16.0 } else { 24.0 };
             let back_w = if compact { 80.0 } else { 100.0 };
             button(
                 &mut ui,
                 &mut self.targets,
-                [tab_margin, 76.0, back_w, 38.0],
+                [content_margin, 76.0, back_w, 38.0],
                 "< Меню",
                 Action::Page(Page::Play),
                 false,
             );
             let tabs = Page::SETTINGS_TABS.len() as f32;
-            let sub_start = tab_margin + back_w + 8.0;
-            let tab_width = (w - sub_start - tab_margin) / tabs;
+            let sub_start = content_margin + back_w + 8.0;
+            let total_tabs_w = if compact { (w - content_margin) - sub_start } else { max_content_w - back_w - 8.0 };
+            let tab_width = total_tabs_w / tabs;
             for (i, tab) in Page::SETTINGS_TABS.iter().enumerate() {
                 let x = sub_start + i as f32 * tab_width;
                 button(
@@ -513,11 +519,10 @@ impl Launcher {
                 }
             } else {
                 // Split-panel dashboard for landscape screens (w >= 620.0 and w >= h)
-                let margin = 20.0;
                 let gap = 16.0;
-                let col_w = (w - 2.0 * margin - gap) * 0.5;
-                let left_x = margin;
-                let right_x = margin + col_w + gap;
+                let col_w = (max_content_w - gap) * 0.5;
+                let left_x = content_margin;
+                let right_x = content_margin + col_w + gap;
                 let content_top = 64.0;
                 let content_bottom = h - 16.0;
 
@@ -736,7 +741,7 @@ impl Launcher {
             ui.text(
                 Face::Medium,
                 18.0,
-                32.0,
+                content_margin,
                 142.0,
                 color::TEXT,
                 if page == Page::Mods {
@@ -747,10 +752,12 @@ impl Launcher {
                     "Resource Packs"
                 },
             );
+            let search_btn_w = 158.0;
+            let search_input_w = max_content_w - search_btn_w - 8.0;
             button(
                 &mut ui,
                 &mut self.targets,
-                [32.0, 174.0, w - 240.0, 44.0],
+                [content_margin, 174.0, search_input_w, 44.0],
                 &format!(
                     "{}{}",
                     if page == Page::Mods {
@@ -766,7 +773,7 @@ impl Launcher {
             button(
                 &mut ui,
                 &mut self.targets,
-                [w - 190.0, 174.0, 158.0, 44.0],
+                [content_margin + search_input_w + 8.0, 174.0, search_btn_w, 44.0],
                 if page == Page::Mods && self.catalog.query.trim().starts_with("https://") {
                     "Import .hmod"
                 } else {
@@ -777,9 +784,9 @@ impl Launcher {
             );
             if matches!(page, Page::Shaders | Page::Mods) {
                 use crate::shader_catalog::Origin;
-                let width = ((w - 185.0) / 2.0).clamp(58.0, 120.0);
+                let btn_w = 110.0f32.min((max_content_w * 0.4) / 2.0);
                 for (i, origin) in [Origin::Horizon, Origin::Modrinth].into_iter().enumerate() {
-                    let rect = [w - 32.0 - (2 - i) as f32 * width, 134.0, width - 5.0, 32.0];
+                    let rect = [content_margin + max_content_w - (2 - i) as f32 * (btn_w + 4.0), 134.0, btn_w, 32.0];
                     button(
                         &mut ui,
                         &mut self.targets,
@@ -807,7 +814,7 @@ impl Launcher {
                     if self.catalog.config.mod_source
                         == crate::shader_catalog::Origin::Modrinth =>
                 {
-                    "Modrinth Java mods are browse-only; Fabric/Forge/NeoForge cannot run here"
+                    "Java mods (Fabric/Forge) port assets & data via Horizon Port-Pack"
                 }
                 Page::Mods => "Поиск модов или ссылка на .hmod",
                 Page::Shaders
@@ -819,18 +826,18 @@ impl Launcher {
                 Page::Shaders => "Нативные шейдер-паки .hshader",
                 _ => "Verified downloads / enable in Installed",
             };
-            let hint = ui.fit_text(Face::Regular, 14.0, hint, w - 64.0);
-            ui.text(Face::Regular, 14.0, 32.0, 270.0, color::MUTED, &hint);
+            let hint = ui.fit_text(Face::Regular, 14.0, hint, max_content_w);
+            ui.text(Face::Regular, 14.0, content_margin, 270.0, color::MUTED, &hint);
             let kind = match page {
                 Page::Mods => horizon_client::content_files::Kind::Mods,
                 Page::Shaders => horizon_client::content_files::Kind::Shaders,
                 _ => horizon_client::content_files::Kind::Packs,
             };
-            let file_button_width = ((w - 72.0) / 2.0).min(158.0);
+            let file_button_width = 160.0f32.min((max_content_w - 16.0) * 0.5);
             button(
                 &mut ui,
                 &mut self.targets,
-                [32.0, 222.0, file_button_width, 38.0],
+                [content_margin, 222.0, file_button_width, 38.0],
                 "Open folder",
                 Action::OpenFolder(kind),
                 false,
@@ -838,7 +845,7 @@ impl Launcher {
             button(
                 &mut ui,
                 &mut self.targets,
-                [w - 32.0 - file_button_width, 222.0, file_button_width, 38.0],
+                [content_margin + max_content_w - file_button_width, 222.0, file_button_width, 38.0],
                 "Import file",
                 Action::Import(kind),
                 false,
@@ -886,14 +893,14 @@ impl Launcher {
                 if y < top - 1.0 || y + 68.0 > bottom {
                     continue;
                 }
-                let title = ui.fit_text(Face::Medium, 19.0, title, w - 214.0);
-                let summary = ui.fit_text(Face::Regular, 14.0, description, w - 214.0);
-                ui.text(Face::Medium, 19.0, 32.0, y, color::TEXT, &title);
-                ui.text(Face::Regular, 14.0, 32.0, y + 29.0, color::MUTED, &summary);
+                let title = ui.fit_text(Face::Medium, 19.0, title, max_content_w - 180.0);
+                let summary = ui.fit_text(Face::Regular, 14.0, description, max_content_w - 180.0);
+                ui.text(Face::Medium, 19.0, content_margin, y, color::TEXT, &title);
+                ui.text(Face::Regular, 14.0, content_margin, y + 29.0, color::MUTED, &summary);
                 button(
                     &mut ui,
                     &mut self.targets,
-                    [w - 150.0, y, 118.0, 42.0],
+                    [content_margin + max_content_w - 118.0, y, 118.0, 42.0],
                     if self.catalog.bundled_enabled.contains(*id) {
                         "Disable"
                     } else {
@@ -908,37 +915,25 @@ impl Launcher {
                 let download = self.catalog.download_label(p);
                 if download.is_none()
                     && !crate::catalog::source_only_mod(p)
-                    && !(p.kind == crate::browser::Kind::Mod
-                        && p.source == crate::browser::SourceId::Modrinth)
+                    && (p.kind != crate::browser::Kind::Mod || cfg!(target_pointer_width = "64"))
                 {
                     self.list_targets
-                        .push(([w - 150.0, y, 118.0, 70.0], Action::Install(i)));
+                        .push(([content_margin + max_content_w - 118.0, y, 118.0, 70.0], Action::Install(i)));
                 }
                 if y < top || y + 70.0 > bottom {
                     continue;
                 }
-                let title = ui.fit_text(Face::Medium, 19.0, &p.title, w - 214.0);
-                let summary = ui.fit_text(Face::Regular, 14.0, &p.summary, w - 214.0);
-                ui.text(Face::Medium, 19.0, 32.0, y, color::TEXT, &title);
-                ui.text(Face::Regular, 14.0, 32.0, y + 29.0, color::MUTED, &summary);
+                let title = ui.fit_text(Face::Medium, 19.0, &p.title, max_content_w - 180.0);
+                let summary = ui.fit_text(Face::Regular, 14.0, &p.summary, max_content_w - 180.0);
+                ui.text(Face::Medium, 19.0, content_margin, y, color::TEXT, &title);
+                ui.text(Face::Regular, 14.0, content_margin, y + 29.0, color::MUTED, &summary);
                 if let Some(state) = download {
-                    ui.text(Face::Medium, 16.0, w - 150.0, y + 12.0, color::TEXT, &state);
-                } else if p.kind == crate::browser::Kind::Mod
-                    && p.source == crate::browser::SourceId::Modrinth
-                {
-                    ui.text(
-                        Face::Regular,
-                        14.0,
-                        w - 150.0,
-                        y + 12.0,
-                        color::MUTED,
-                        "Java mod",
-                    );
+                    ui.text(Face::Medium, 16.0, content_margin + max_content_w - 118.0, y + 12.0, color::TEXT, &state);
                 } else if crate::catalog::source_only_mod(p) {
                     ui.text(
                         Face::Regular,
                         14.0,
-                        w - 150.0,
+                        content_margin + max_content_w - 118.0,
                         y + 12.0,
                         color::MUTED,
                         ".hnmod: later",
@@ -948,7 +943,7 @@ impl Launcher {
                     ui.text(
                         Face::Regular,
                         14.0,
-                        w - 150.0,
+                        content_margin + max_content_w - 118.0,
                         y + 12.0,
                         color::MUTED,
                         "64-bit required",
@@ -957,7 +952,7 @@ impl Launcher {
                     button(
                         &mut ui,
                         &mut self.targets,
-                        [w - 150.0, y, 118.0, 42.0],
+                        [content_margin + max_content_w - 118.0, y, 118.0, 42.0],
                         self.catalog.install_button(p),
                         Action::Install(i),
                         false,
@@ -967,7 +962,7 @@ impl Launcher {
             button(
                 &mut ui,
                 &mut self.targets,
-                [32.0, h - 100.0, 120.0, 40.0],
+                [content_margin, h - 100.0, 120.0, 40.0],
                 "Previous",
                 Action::Previous,
                 false,
@@ -975,7 +970,7 @@ impl Launcher {
             button(
                 &mut ui,
                 &mut self.targets,
-                [166.0, h - 100.0, 120.0, 40.0],
+                [content_margin + 130.0, h - 100.0, 120.0, 40.0],
                 "Next",
                 Action::Next,
                 false,
@@ -1013,15 +1008,17 @@ impl Launcher {
                     },
                     kind.label()
                 );
+                let sec_btn_w = 135.0f32.min(max_content_w * 0.3);
+                let sec_toggle_w = max_content_w - sec_btn_w - 8.0;
                 self.list_targets
-                    .push(([32.0, y, w - 210.0, 40.0], Action::ToggleSection(section)));
+                    .push(([content_margin, y, sec_toggle_w, 40.0], Action::ToggleSection(section)));
                 self.list_targets
-                    .push(([w - 165.0, y, 133.0, 40.0], Action::Import(kind)));
+                    .push(([content_margin + sec_toggle_w + 8.0, y, sec_btn_w, 40.0], Action::Import(kind)));
                 if y >= top && y + 40.0 <= bottom {
                     button(
                         &mut ui,
                         &mut self.targets,
-                        [32.0, y, w - 210.0, 40.0],
+                        [content_margin, y, sec_toggle_w, 40.0],
                         &label,
                         Action::ToggleSection(section),
                         false,
@@ -1029,7 +1026,7 @@ impl Launcher {
                     button(
                         &mut ui,
                         &mut self.targets,
-                        [w - 165.0, y, 133.0, 40.0],
+                        [content_margin + sec_toggle_w + 8.0, y, sec_btn_w, 40.0],
                         "Import",
                         Action::Import(kind),
                         false,
@@ -1048,17 +1045,21 @@ impl Launcher {
                 {
                     let y = top + offset - self.catalog.scroll;
                     offset += row_height;
+                    let remove_w = 130.0f32.min(max_content_w * 0.25);
+                    let toggle_w = 120.0f32.min(max_content_w * 0.25);
+                    let remove_x = content_margin + max_content_w - remove_w;
+                    let toggle_x = if compact { content_margin } else { remove_x - toggle_w - 10.0 };
                     self.list_targets.push((
                         [
-                            if compact { 32.0 } else { w - 300.0 },
-                            y,
-                            120.0,
-                            row_height - 4.0,
+                            toggle_x,
+                            y + if compact { 55.0 } else { 0.0 },
+                            toggle_w,
+                            40.0,
                         ],
                         Action::ToggleLocal(i),
                     ));
                     self.list_targets.push((
-                        [w - 165.0, y, 133.0, row_height - 4.0],
+                        [remove_x, y + if compact { 55.0 } else { 0.0 }, remove_w, 40.0],
                         Action::DeleteLocal(i),
                     ));
                     if y < top || y + row_height - 4.0 > bottom {
@@ -1068,13 +1069,13 @@ impl Launcher {
                         Face::Medium,
                         19.0,
                         &item.title,
-                        if compact { w - 64.0 } else { w - 364.0 },
+                        if compact { max_content_w } else { max_content_w - remove_w - toggle_w - 30.0 },
                     );
-                    ui.text(Face::Medium, 19.0, 32.0, y, color::TEXT, &title);
+                    ui.text(Face::Medium, 19.0, content_margin, y, color::TEXT, &title);
                     ui.text(
                         Face::Regular,
                         14.0,
-                        32.0,
+                        content_margin,
                         y + 28.0,
                         color::MUTED,
                         kind.label(),
@@ -1083,7 +1084,7 @@ impl Launcher {
                         ui.text(
                             Face::Regular,
                             14.0,
-                            if compact { 32.0 } else { w - 300.0 },
+                            toggle_x,
                             y + if compact { 62.0 } else { 12.0 },
                             color::MUTED,
                             "64-bit required",
@@ -1093,9 +1094,9 @@ impl Launcher {
                             &mut ui,
                             &mut self.targets,
                             [
-                                if compact { 32.0 } else { w - 300.0 },
+                                toggle_x,
                                 y + if compact { 55.0 } else { 0.0 },
-                                120.0,
+                                toggle_w,
                                 40.0,
                             ],
                             item.enabled,
@@ -1105,7 +1106,7 @@ impl Launcher {
                     button(
                         &mut ui,
                         &mut self.targets,
-                        [w - 165.0, y + if compact { 55.0 } else { 0.0 }, 133.0, 40.0],
+                        [remove_x, y + if compact { 55.0 } else { 0.0 }, remove_w, 40.0],
                         "Remove",
                         Action::DeleteLocal(i),
                         false,
@@ -1117,7 +1118,7 @@ impl Launcher {
             ui.text(
                 Face::Medium,
                 24.0,
-                32.0,
+                content_margin,
                 156.0,
                 color::TEXT,
                 "Launch settings",
@@ -1257,22 +1258,22 @@ impl Launcher {
             .enumerate()
             {
                 let y = 195.0 + i as f32 * row_height - self.catalog.scroll;
-                self.list_targets.push((
-                    [
-                        if compact { 32.0 } else { w * 0.36 },
-                        y,
-                        if compact { w - 64.0 } else { w * 0.64 - 32.0 },
-                        if compact { 70.0 } else { 46.0 },
-                    ],
-                    action,
-                ));
+                let val_w = 280.0f32.min(max_content_w * 0.45);
+                let val_x = content_margin + max_content_w - val_w;
+                let btn_rect = [
+                    if compact { content_margin } else { val_x },
+                    y + if compact { 24.0 } else { 0.0 },
+                    if compact { max_content_w } else { val_w },
+                    46.0,
+                ];
+                self.list_targets.push((btn_rect, action));
                 if y < 185.0 || y + if compact { 70.0 } else { 46.0 } > h - 130.0 {
                     continue;
                 }
                 ui.text(
                     Face::Regular,
                     16.0,
-                    32.0,
+                    content_margin,
                     y + if compact { 0.0 } else { 13.0 },
                     color::MUTED,
                     title,
@@ -1284,12 +1285,7 @@ impl Launcher {
                     toggle(
                         &mut ui,
                         &mut self.targets,
-                        [
-                            if compact { 32.0 } else { w * 0.36 },
-                            y + if compact { 24.0 } else { 0.0 },
-                            if compact { w - 64.0 } else { w * 0.64 - 32.0 },
-                            46.0,
-                        ],
+                        btn_rect,
                         match action {
                             Action::PerformanceHints => c.device.performance_hints,
                             Action::Immersive => c.screen.immersive,
@@ -1303,12 +1299,7 @@ impl Launcher {
                     button(
                         &mut ui,
                         &mut self.targets,
-                        [
-                            if compact { 32.0 } else { w * 0.36 },
-                            y + if compact { 24.0 } else { 0.0 },
-                            if compact { w - 64.0 } else { w * 0.64 - 32.0 },
-                            46.0,
-                        ],
+                        btn_rect,
                         &format!(
                             "{} {}",
                             value,
@@ -1332,29 +1323,30 @@ impl Launcher {
                     );
                 }
                 ui.rounded(
-                    32.0,
+                    content_margin,
                     y + if compact { 78.0 } else { 62.0 },
-                    w - 64.0,
+                    max_content_w,
                     1.0,
                     0.0,
                     color::BORDER,
                 );
             }
+            let half_w = (max_content_w - 12.0) * 0.5;
             button(
                 &mut ui,
                 &mut self.targets,
-                [w * 0.5 + 6.0, h - 114.0, w * 0.5 - 38.0, 42.0],
-                "Microsoft / Xbox account",
-                Action::Account,
-                true,
+                [content_margin, h - 114.0, half_w, 42.0],
+                "Diagnostics",
+                Action::Logs,
+                false,
             );
             button(
                 &mut ui,
                 &mut self.targets,
-                [32.0, h - 114.0, w * 0.5 - 38.0, 42.0],
-                "Diagnostics",
-                Action::Logs,
-                false,
+                [content_margin + half_w + 12.0, h - 114.0, half_w, 42.0],
+                "Microsoft / Xbox account",
+                Action::Account,
+                true,
             );
         }
         let status = self.error.as_deref().unwrap_or(&self.catalog.status);
@@ -1368,14 +1360,14 @@ impl Launcher {
             ui.text(
                 Face::Regular,
                 14.0,
-                32.0,
+                content_margin,
                 h - 47.0 + i as f32 * 18.0,
                 color::MUTED,
                 &ui.fit_text(
                     Face::Regular,
                     14.0,
                     &line.iter().collect::<String>(),
-                    (w - 210.0).max(40.0),
+                    (max_content_w - 130.0).max(40.0),
                 ),
             );
         }
@@ -1383,7 +1375,7 @@ impl Launcher {
             button(
                 &mut ui,
                 &mut self.targets,
-                [w - 142.0, h - 52.0, 110.0, 32.0],
+                [content_margin + max_content_w - 110.0, h - 52.0, 110.0, 32.0],
                 "GitHub",
                 Action::Repository,
                 false,
