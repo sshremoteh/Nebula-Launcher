@@ -7,6 +7,8 @@ mod chooser;
 mod gesture;
 #[path = "login.rs"]
 mod login;
+#[path = "nebula_sky.rs"]
+pub(super) mod nebula_sky;
 #[path = "launcher_pages.rs"]
 mod pages;
 use horizon_client::{
@@ -639,7 +641,7 @@ impl ApplicationHandler for Launcher {
             events.set_control_flow(ControlFlow::Poll);
         } else {
             events.set_control_flow(ControlFlow::WaitUntil(
-                Instant::now() + Duration::from_millis(50),
+                Instant::now() + Duration::from_millis(16),
             ));
         }
     }

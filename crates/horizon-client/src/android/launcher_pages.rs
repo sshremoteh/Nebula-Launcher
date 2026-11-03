@@ -69,6 +69,23 @@ pub(super) enum Action {
     ToggleHaptic,
 }
 
+pub(super) fn card(ui: &mut Ui, rect: [f32; 4], radius: f32) {
+    let [x, y, w, h] = rect;
+    // Translucent dark glass
+    ui.rounded(x, y, w, h, radius, rgba(15, 23, 42, 185));
+    // Soft luminous border
+    ui.border(x, y, w, h, radius, rgba(125, 211, 252, 50));
+    // Subtle top specular highlight
+    ui.gradient(
+        x + radius * 0.5,
+        y + 1.0,
+        (w - radius).max(10.0),
+        (h * 0.35).min(24.0),
+        rgba(255, 255, 255, 15),
+        rgba(255, 255, 255, 0),
+    );
+}
+
 pub(super) fn button(
     ui: &mut Ui,
     targets: &mut Vec<([f32; 4], Action)>,
@@ -78,14 +95,15 @@ pub(super) fn button(
     accent: bool,
 ) {
     let [x, y, w, h] = rect;
-    use horizon_client::ui_theme::md3;
-    let radius = (h * 0.4).min(14.0);
+    let radius = (h * 0.48).min(24.0);
     if accent {
-        ui.rounded(x, y, w, h, radius, md3::PRIMARY_CONTAINER);
-        ui.border(x, y, w, h, radius, md3::PRIMARY);
+        // Glowing vibrant pill gradient
+        ui.gradient(x, y, w, h, rgba(99, 102, 241, 245), rgba(6, 182, 212, 245));
+        ui.border(x, y, w, h, radius, rgba(165, 180, 252, 210));
     } else {
-        ui.rounded(x, y, w, h, radius, md3::SURFACE_CONTAINER_HIGH);
-        ui.border(x, y, w, h, radius, md3::OUTLINE_VARIANT);
+        // Translucent frosted glass pill
+        ui.rounded(x, y, w, h, radius, rgba(22, 28, 46, 190));
+        ui.border(x, y, w, h, radius, rgba(125, 211, 252, 50));
     }
     let padding = (w * 0.08).clamp(6.0, 16.0);
     let base = if w < 80.0 { 12.0 } else if h > 46.0 { 16.0 } else { 14.0 };
@@ -96,16 +114,18 @@ pub(super) fn button(
         base
     };
     let label = ui.fit_text(Face::Medium, font, label, w - 2.0 * padding);
+    let text_w = ui.measure(Face::Medium, font, &label);
+    let text_x = x + (w - text_w) * 0.5;
     let text_y = y + (h - font * 1.05) * 0.5;
     ui.text(
         Face::Medium,
         font,
-        x + padding,
+        text_x,
         text_y,
         if accent {
-            md3::ON_PRIMARY_CONTAINER
+            rgba(255, 255, 255, 255)
         } else {
-            md3::ON_SURFACE
+            rgba(241, 245, 249, 255)
         },
         &label,
     );
@@ -120,35 +140,33 @@ fn toggle(
     action: Action,
 ) {
     let [x, y, w, h] = rect;
-    use horizon_client::ui_theme::md3;
 
-    // MD3 Switch Track: 52 x 28dp, pill shape
-    let track_w = 52.0;
-    let track_h = 28.0;
+    // Smooth capsule switch track: 50 x 26dp
+    let track_w = 50.0;
+    let track_h = 26.0;
     let track_x = x + w - track_w - 4.0;
     let track_y = y + (h - track_h) * 0.5;
     let track_r = track_h * 0.5;
 
-    // Status text
     let status_text = if on { "Вкл" } else { "Выкл" };
     ui.text(
         Face::Regular,
         14.0,
         x,
         y + (h - 14.0) * 0.5,
-        if on { md3::ON_SURFACE } else { md3::ON_SURFACE_VARIANT },
+        if on { rgba(248, 250, 252, 255) } else { rgba(148, 163, 184, 255) },
         status_text,
     );
 
     if on {
-        ui.rounded(track_x, track_y, track_w, track_h, track_r, md3::PRIMARY);
+        ui.gradient(track_x, track_y, track_w, track_h, rgba(99, 102, 241, 240), rgba(6, 182, 212, 240));
+        ui.border(track_x, track_y, track_w, track_h, track_r, rgba(165, 180, 252, 200));
     } else {
-        ui.rounded(track_x, track_y, track_w, track_h, track_r, md3::SURFACE_CONTAINER_HIGHEST);
-        ui.border(track_x, track_y, track_w, track_h, track_r, md3::OUTLINE);
+        ui.rounded(track_x, track_y, track_w, track_h, track_r, rgba(30, 41, 59, 200));
+        ui.border(track_x, track_y, track_w, track_h, track_r, rgba(100, 116, 139, 140));
     }
 
-    // MD3 Switch Thumb: 22dp diameter circle
-    let thumb_sz = 22.0;
+    let thumb_sz = 20.0;
     let thumb_pad = 3.0;
     let thumb_x = if on {
         track_x + track_w - thumb_sz - thumb_pad
@@ -158,11 +176,10 @@ fn toggle(
     let thumb_y = track_y + (track_h - thumb_sz) * 0.5;
 
     if on {
-        ui.rounded(thumb_x, thumb_y, thumb_sz, thumb_sz, thumb_sz * 0.5, md3::ON_PRIMARY);
-        // Miniature vector checkmark inside thumb
-        ui.check_icon(thumb_x + 5.0, thumb_y + 5.0, 12.0, md3::PRIMARY);
+        ui.rounded(thumb_x, thumb_y, thumb_sz, thumb_sz, thumb_sz * 0.5, rgba(255, 255, 255, 255));
+        ui.check_icon(thumb_x + 4.0, thumb_y + 4.0, 12.0, rgba(79, 70, 229, 255));
     } else {
-        ui.rounded(thumb_x, thumb_y, thumb_sz, thumb_sz, thumb_sz * 0.5, md3::OUTLINE);
+        ui.rounded(thumb_x, thumb_y, thumb_sz, thumb_sz, thumb_sz * 0.5, rgba(148, 163, 184, 255));
     }
 
     targets.push(([x, y, w, h], action));
@@ -255,87 +272,80 @@ impl Launcher {
             ui.h = ui.h.min(bottom as f32 / ui.density);
         }
         let (w, h) = (ui.w, ui.h);
-        let scale = ui.density / ui.batch.scale;
-        // Deep cosmic gradient backdrop
-        ui.batch.fill_gradient(
-            &gui.atlas,
-            (0.0, 0.0, w * scale, h * scale),
-            rgba(15, 23, 42, 255),
-            rgba(8, 10, 16, 255),
-        );
-
+        let _scale = ui.density / ui.batch.scale;
         let now_millis = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
+        let time_sec = (now_millis as f32) / 1000.0;
         let pulse = ((now_millis % 2400) as f32 / 2400.0 * std::f32::consts::TAU).sin() * 0.5 + 0.5;
+
+        // Render live cosmic nebula sky with stars, constellations, and gentle snow!
+        super::nebula_sky::NebulaSky::render(&mut ui, time_sec);
 
         let compact = w < 620.0 || h > w;
         let max_content_w = 980.0f32.min(w - 48.0);
         let content_margin = if compact { 16.0 } else { (w - max_content_w) * 0.5 };
         let page = self.catalog.page;
 
-        let header_x = if compact { 20.0 } else { content_margin };
+        // Header Top Row
+        let header_y = if compact { 10.0 } else { 14.0 };
+        let header_h = 36.0;
+
+        // Brand Pill
+        let brand_w = if compact { 150.0 } else { 180.0 };
+        ui.rounded(content_margin, header_y, brand_w, header_h, 18.0, rgba(15, 23, 42, 190));
+        ui.border(content_margin, header_y, brand_w, header_h, 18.0, rgba(125, 211, 252, 60));
         ui.text(
             Face::SemiBold,
-            if w < 400.0 { 18.0 } else if w < 700.0 { 22.0 } else { 26.0 },
-            header_x,
-            if compact { 16.0 } else { 22.0 },
+            14.0,
+            content_margin + 14.0,
+            header_y + 9.0,
             rgba(248, 250, 252, 255),
-            "NEBULA LAUNCHER • 1.0 Release",
+            "✦ NEBULA",
         );
-        let acct_w = if compact { 194.0 } else { 240.0 };
-        let acct_x = if compact { w - acct_w - 16.0 } else { content_margin + max_content_w - acct_w };
+        let rel_x = content_margin + brand_w - 64.0;
+        ui.rounded(rel_x, header_y + 7.0, 52.0, 22.0, 11.0, rgba(99, 102, 241, 160));
+        ui.text(Face::SemiBold, 9.0, rel_x + 6.0, header_y + 13.0, rgba(224, 231, 255, 255), "1.0 REL");
+
+        // Account Pill on right
+        let acct_w = if compact { 170.0 } else { 220.0 };
+        let acct_x = content_margin + max_content_w - acct_w;
         button(
             &mut ui,
             &mut self.targets,
-            [
-                acct_x,
-                if compact { 12.0 } else { 16.0 },
-                acct_w,
-                if compact { 34.0 } else { 38.0 },
-            ],
+            [acct_x, header_y, acct_w, header_h],
             &self.login.status(&self.catalog.config.name),
             Action::Account,
             self.login.signed_in,
         );
 
-        // Sub-navigation bar inside Settings (when not in Main Menu)
-        if page != Page::Play {
-            let back_w = if compact { 80.0 } else { 100.0 };
+        // Always-Visible Top Floating Navigation Bar (smooth rounded capsules)
+        let nav_y = header_y + header_h + 8.0;
+        let nav_h = if compact { 34.0 } else { 38.0 };
+        let nav_tabs = [
+            (Page::Play, "🚀 Играть"),
+            (Page::Mods, "🧩 Моды"),
+            (Page::Shaders, "🎨 Шейдеры"),
+            (Page::Packs, "📦 Текстуры"),
+            (Page::Settings, "⚙️ Опции"),
+        ];
+        let tab_cnt = nav_tabs.len() as f32;
+        let tab_gap = 6.0;
+        let tab_w = (max_content_w - (tab_cnt - 1.0) * tab_gap) / tab_cnt;
+        for (i, (tab_page, tab_label)) in nav_tabs.iter().enumerate() {
+            let tab_x = content_margin + i as f32 * (tab_w + tab_gap);
             button(
                 &mut ui,
                 &mut self.targets,
-                [content_margin, 76.0, back_w, 38.0],
-                "< Меню",
-                Action::Page(Page::Play),
-                false,
+                [tab_x, nav_y, tab_w, nav_h],
+                tab_label,
+                Action::Page(*tab_page),
+                *tab_page == page,
             );
-            let tabs = Page::SETTINGS_TABS.len() as f32;
-            let sub_start = content_margin + back_w + 8.0;
-            let total_tabs_w = if compact { (w - content_margin) - sub_start } else { max_content_w - back_w - 8.0 };
-            let tab_width = total_tabs_w / tabs;
-            for (i, tab) in Page::SETTINGS_TABS.iter().enumerate() {
-                let x = sub_start + i as f32 * tab_width;
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [x, 76.0, tab_width - 4.0, 38.0],
-                    if compact {
-                        match tab {
-                            Page::Installed => "Файлы",
-                            Page::Settings => "Опции",
-                            Page::Packs => "Паки",
-                            _ => tab.tab_title(),
-                        }
-                    } else {
-                        tab.tab_title()
-                    },
-                    Action::Page(*tab),
-                    *tab == page,
-                );
-            }
         }
+
+        let play_content_top = nav_y + nav_h + 12.0;
 
         if page == Page::Play {
             use horizon_client::official_install::InstallStage;
@@ -343,400 +353,179 @@ impl Launcher {
             let installing = self.worker.is_some();
             let progress = *self.install.lock().unwrap();
 
-            if compact {
-                // Stacked layout for compact / portrait screens
-                let pad = 16.0;
-                let card_w = w - 2.0 * pad;
-
-                // 1. Nickname card with gradient
-                let nick_y = 64.0;
-                let nick_h = 72.0;
-                ui.gradient(pad, nick_y, card_w, nick_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(pad, nick_y, card_w, nick_h, 6.0, rgba(59, 130, 246, 140));
-                ui.text(Face::Medium, 11.0, pad + 10.0, nick_y + 10.0, rgba(148, 163, 184, 255), "ИМЯ ИГРОКА (АВТОСОХРАНЕНИЕ)");
-                let field_w = card_w - 20.0 - 82.0;
-                let nick_display = if self.catalog.config.name.trim().is_empty() {
-                    "Игрок (введите ник)"
-                } else {
-                    &self.catalog.config.name
-                };
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [pad + 10.0, nick_y + 26.0, field_w, 36.0],
-                    nick_display,
-                    Action::Field("name"),
-                    false,
-                );
-                let is_editing_name = self.catalog.editing == Some("name");
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [pad + 10.0 + field_w + 6.0, nick_y + 26.0, 76.0, 36.0],
-                    if is_editing_name { "OK" } else { "Сохранить" },
-                    Action::FinishNameEdit,
-                    is_editing_name,
-                );
-
-                // 2. Version & Profile row with gradient
-                let ver_y = nick_y + nick_h + 8.0;
-                let ver_h = 86.0;
-                ui.gradient(pad, ver_y, card_w, ver_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(pad, ver_y, card_w, ver_h, 6.0, rgba(71, 85, 105, 180));
-                
-                // Icon from icon.jpg
-                let icon_sz = 34.0;
-                ui.rounded(pad + 10.0, ver_y + 6.0, icon_sz, icon_sz, 6.0, rgba(15, 23, 42, 255));
-                ui.draw_icon_rgba(pad + 10.0, ver_y + 6.0, icon_sz, icon_sz, NEBULA_ICON, 96, 96);
-                ui.border(pad + 10.0, ver_y + 6.0, icon_sz, icon_sz, 6.0, rgba(129, 140, 248, (180.0 + pulse * 75.0) as u8));
-
-                ui.text(Face::SemiBold, 14.0, pad + 10.0 + icon_sz + 8.0, ver_y + 8.0, rgba(248, 250, 252, 255), "Minecraft 26.3");
-                ui.text(Face::Regular, 10.0, pad + 10.0 + icon_sz + 8.0, ver_y + 24.0, rgba(148, 163, 184, 255), "Nebula Engine");
-
-                let (st_txt, st_col) = if installing {
-                    ("Установка...", rgba(56, 189, 248, 255))
-                } else if installed {
-                    ("Готово к игре", rgba(52, 211, 153, 255))
-                } else {
-                    ("Нужна загрузка", rgba(251, 191, 36, 255))
-                };
-                let st_w = ui.measure(Face::Medium, 11.0, st_txt);
-                let st_x = pad + card_w - st_w - 12.0;
-                ui.rounded(st_x - 10.0, ver_y + 16.0, 6.0, 6.0, 3.0, st_col);
-                ui.text(Face::Medium, 11.0, st_x, ver_y + 13.0, st_col, st_txt);
-
-                let btn_half_w = (card_w - 26.0) * 0.5;
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [pad + 10.0, ver_y + 44.0, btn_half_w, 36.0],
-                    &format!("Профиль: {}", self.catalog.config.profile),
-                    Action::Profile,
-                    false,
-                );
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [pad + 10.0 + btn_half_w + 6.0, ver_y + 44.0, btn_half_w, 36.0],
-                    &format!("Графика: {}", self.catalog.config.renderer.label()),
-                    Action::Renderer,
-                    false,
-                );
-
-                // 3. Play or Progress Area
-                let play_y = ver_y + ver_h + 8.0;
-                let play_h = 52.0;
-                if installing {
-                    let current = InstallStage::ALL.iter().position(|s| *s == progress.stage).unwrap_or(0);
-                    let fraction = if progress.total > 0 { progress.done as f32 / progress.total as f32 } else { 0.0 };
-                    let pct = (fraction * 100.0).clamp(0.0, 100.0);
-                    let overall_pct = ((current as f32 + fraction.clamp(0.0, 1.0)) / 6.0 * 100.0).clamp(0.0, 100.0);
-
-                    let box_h = 76.0;
-                    ui.gradient(pad, play_y, card_w, box_h, rgba(22, 29, 44, 230), rgba(15, 20, 30, 230));
-                    ui.border(pad, play_y, card_w, box_h, 8.0, rgba(56, 189, 248, 160));
-
-                    ui.text(Face::SemiBold, 13.0, pad + 10.0, play_y + 8.0, rgba(248, 250, 252, 255), progress.stage.label());
-                    ui.text(Face::SemiBold, 14.0, pad + card_w - 55.0, play_y + 8.0, rgba(52, 211, 153, 255), &format!("{:.1}%", pct));
-
-                    let bar_y = play_y + 30.0;
-                    let bar_w = card_w - 20.0;
-                    ui.gradient(pad + 10.0, bar_y, bar_w, 10.0, rgba(15, 23, 42, 255), rgba(30, 41, 59, 255));
-                    ui.border(pad + 10.0, bar_y, bar_w, 10.0, 5.0, rgba(51, 65, 85, 200));
-
-                    let fill_w = (bar_w * fraction.clamp(0.02, 1.0)).min(bar_w);
-                    ui.gradient(pad + 10.0, bar_y, fill_w, 10.0, rgba(52, 211, 153, 255), rgba(16, 185, 129, 255));
-
-                    let wave_x = pad + 10.0 + (fill_w - 12.0).max(0.0) * ((now_millis % 1500) as f32 / 1500.0);
-                    ui.rounded(wave_x, bar_y + 1.0, 10.0, 8.0, 4.0, rgba(255, 255, 255, (100.0 * pulse + 50.0) as u8));
-
-                    let stat = format!("Общий: {:.0}%  •  Этап {}/6", overall_pct, current + 1);
-                    ui.text(Face::Regular, 11.0, pad + 10.0, play_y + 48.0, rgba(148, 163, 184, 255), &stat);
-                } else {
-                    let play_label = if installed {
-                        "И Г Р А Т Ь"
-                    } else if self.error.is_some() {
-                        "ПОВТОРИТЬ ЗАГРУЗКУ"
-                    } else {
-                        "СКАЧАТЬ MINECRAFT 26.3"
-                    };
-                    if installed {
-                        let glow = (180.0 + pulse * 75.0) as u8;
-                        ui.gradient(pad, play_y, card_w, play_h, rgba(34, 197, 94, 255), rgba(16, 149, 74, 255));
-                        ui.border(pad, play_y, card_w, play_h, 8.0, rgba(74, 222, 128, glow));
-                    } else {
-                        ui.gradient(pad, play_y, card_w, play_h, rgba(59, 130, 246, 255), rgba(37, 99, 235, 255));
-                        ui.border(pad, play_y, card_w, play_h, 8.0, rgba(147, 197, 253, 200));
-                    }
-                    let font_size = 17.0;
-                    let label_fit = ui.fit_text(Face::SemiBold, font_size, play_label, card_w - 20.0);
-                    let text_w = ui.measure(Face::SemiBold, font_size, &label_fit);
-                    if installed {
-                        let tri_sz = 12.0;
-                        let total_w = tri_sz + 10.0 + text_w;
-                        let text_start = pad + (card_w - total_w) * 0.5;
-                        ui.play_triangle(text_start, play_y + (play_h - tri_sz) * 0.5, tri_sz, rgba(255, 255, 255, 255));
-                        ui.text(Face::SemiBold, font_size, text_start + tri_sz + 10.0, play_y + (play_h - font_size * 1.1) * 0.5, rgba(255, 255, 255, 255), &label_fit);
-                    } else {
-                        let text_x = pad + (card_w - text_w) * 0.5;
-                        let text_y = play_y + (play_h - font_size * 1.1) * 0.5;
-                        ui.text(Face::SemiBold, font_size, text_x, text_y, rgba(255, 255, 255, 255), &label_fit);
-                    }
-                    self.targets.push(([pad, play_y, card_w, play_h], Action::Play));
-                }
-
-                // 4. Settings button (Indigo gradient)
-                let set_y = play_y + (if installing { 84.0 } else { play_h + 8.0 });
-                ui.gradient(pad, set_y, card_w, 42.0, rgba(99, 102, 241, 230), rgba(67, 56, 202, 230));
-                ui.border(pad, set_y, card_w, 42.0, 6.0, rgba(165, 180, 252, 180));
-                let set_label = "Настройки (моды, шейдеры, паки)";
-                let set_txt_w = ui.measure(Face::Medium, 14.0, set_label);
-                let sliders_w = 16.0;
-                let sliders_h = 12.0;
-                let total_set_w = sliders_w + 8.0 + set_txt_w;
-                let set_start_x = pad + (card_w - total_set_w) * 0.5;
-                ui.sliders_icon(set_start_x, set_y + (42.0 - sliders_h) * 0.5, sliders_w, sliders_h, rgba(255, 255, 255, 220));
-                ui.text(Face::Medium, 14.0, set_start_x + sliders_w + 8.0, set_y + 13.0, rgba(255, 255, 255, 255), set_label);
-                self.targets.push(([pad, set_y, card_w, 42.0], Action::Page(Page::Settings)));
-
-                // 5. Changelog
-                let cl_y = set_y + 50.0;
-                let cl_h = (h - cl_y - 12.0).max(60.0);
-                ui.gradient(pad, cl_y, card_w, cl_h, rgba(22, 28, 40, 230), rgba(14, 18, 26, 230));
-                ui.border(pad, cl_y, card_w, cl_h, 6.0, rgba(51, 65, 85, 180));
-                ui.text(Face::SemiBold, 13.0, pad + 10.0, cl_y + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.0");
-                let items = [
-                    "• Оптимизация Vulkan & OpenGL ES с высоким FPS",
-                    "• Сенсорное управление Bedrock Touch",
-                    "• Поддержка оффлайн игры и Java серверов",
-                    "• Менеджер модов, ресурспаков и шейдеров",
-                ];
-                for (idx, item) in items.iter().enumerate() {
-                    let y = cl_y + 28.0 + idx as f32 * 18.0;
-                    if y + 14.0 <= cl_y + cl_h {
-                        ui.text(Face::Regular, 11.0, pad + 10.0, y, rgba(148, 163, 184, 255), item);
-                    }
-                }
+            let hero_y = play_content_top;
+            let hero_w = max_content_w;
+            let hero_h = if compact {
+                (h - hero_y - 70.0).max(190.0)
             } else {
-                // Split-panel dashboard for landscape screens (w >= 620.0 and w >= h)
-                let gap = 16.0;
-                let col_w = (max_content_w - gap) * 0.5;
-                let left_x = content_margin;
-                let right_x = content_margin + col_w + gap;
-                let content_top = 64.0;
-                let content_bottom = h - 16.0;
+                (h - hero_y - 64.0).min(270.0).max(200.0)
+            };
 
-                // --- LEFT PANEL ---
-                // 1. Nickname card with subtle gradient
-                let nick_h = 66.0;
-                ui.gradient(left_x, content_top, col_w, nick_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(left_x, content_top, col_w, nick_h, 6.0, rgba(59, 130, 246, 140));
-                ui.text(Face::Medium, 11.0, left_x + 12.0, content_top + 8.0, rgba(148, 163, 184, 255), "ИМЯ ИГРОКА (АВТОСОХРАНЕНИЕ)");
-                let field_w = col_w - 24.0 - 86.0;
-                let nick_display = if self.catalog.config.name.trim().is_empty() {
-                    "Игрок (введите ник)"
+            // 1. Central Hero Card (Glassmorphic with rounded 24dp)
+            card(&mut ui, [content_margin, hero_y, hero_w, hero_h], 24.0);
+
+            // Icon + Titles inside Hero Card
+            let icon_sz = if compact { 36.0 } else { 44.0 };
+            let icon_x = content_margin + 18.0;
+            let icon_y = hero_y + 16.0;
+            ui.rounded(icon_x, icon_y, icon_sz, icon_sz, 12.0, rgba(15, 23, 42, 255));
+            ui.draw_icon_rgba(icon_x, icon_y, icon_sz, icon_sz, NEBULA_ICON, 96, 96);
+            let icon_glow = (180.0 + pulse * 75.0) as u8;
+            ui.border(icon_x, icon_y, icon_sz, icon_sz, 12.0, rgba(129, 140, 248, icon_glow));
+
+            let title_x = icon_x + icon_sz + 14.0;
+            ui.text(
+                Face::SemiBold,
+                if compact { 15.0 } else { 19.0 },
+                title_x,
+                icon_y + 2.0,
+                rgba(248, 250, 252, 255),
+                "MINECRAFT JAVA EDITION",
+            );
+            ui.text(
+                Face::Regular,
+                if compact { 10.0 } else { 12.0 },
+                title_x,
+                icon_y + if compact { 20.0 } else { 24.0 },
+                rgba(148, 163, 184, 255),
+                "✦ Версия 1.21.4 • Horizon Engine 26.3 • 64-bit Native",
+            );
+
+            // Status chip on top right of hero card
+            let (st_txt, st_col) = if installing {
+                ("● Установка...", rgba(56, 189, 248, 255))
+            } else if installed {
+                ("● Готов к игре", rgba(52, 211, 153, 255))
+            } else {
+                ("● Нужна загрузка", rgba(251, 191, 36, 255))
+            };
+            let st_w = ui.measure(Face::Medium, 11.0, st_txt);
+            let st_x = content_margin + hero_w - st_w - 20.0;
+            ui.rounded(st_x - 10.0, icon_y + 4.0, st_w + 20.0, 26.0, 13.0, rgba(15, 23, 42, 190));
+            ui.border(st_x - 10.0, icon_y + 4.0, st_w + 20.0, 26.0, 13.0, rgba(125, 211, 252, 60));
+            ui.text(Face::Medium, 11.0, st_x, icon_y + 10.0, st_col, st_txt);
+
+            // Nickname Pill row
+            let nick_y = icon_y + icon_sz + 14.0;
+            let nick_w = (hero_w - 36.0 - 90.0).min(360.0);
+            let nick_display = if self.catalog.config.name.trim().is_empty() {
+                "Игрок (введите ник)"
+            } else {
+                &self.catalog.config.name
+            };
+            button(
+                &mut ui,
+                &mut self.targets,
+                [content_margin + 18.0, nick_y, nick_w, 36.0],
+                &format!("👤 Ник: {nick_display}"),
+                Action::Field("name"),
+                false,
+            );
+            let is_editing_name = self.catalog.editing == Some("name");
+            button(
+                &mut ui,
+                &mut self.targets,
+                [content_margin + 18.0 + nick_w + 8.0, nick_y, 80.0, 36.0],
+                if is_editing_name { "OK" } else { "Изменить" },
+                Action::FinishNameEdit,
+                is_editing_name,
+            );
+
+            // Big Radiant "ИГРАТЬ" / Install Capsule Button
+            let play_btn_h = 56.0;
+            let play_btn_y = hero_y + hero_h - play_btn_h - 16.0;
+            let play_btn_w = (hero_w - 36.0).min(440.0);
+            let play_btn_x = content_margin + (hero_w - play_btn_w) * 0.5;
+
+            if installing {
+                let current = InstallStage::ALL.iter().position(|s| *s == progress.stage).unwrap_or(0);
+                let fraction = if progress.total > 0 { progress.done as f32 / progress.total as f32 } else { 0.0 };
+                let pct = (fraction * 100.0).clamp(0.0, 100.0);
+                let overall_pct = ((current as f32 + fraction.clamp(0.0, 1.0)) / 6.0 * 100.0).clamp(0.0, 100.0);
+
+                let box_h = play_btn_h;
+                ui.rounded(play_btn_x, play_btn_y, play_btn_w, box_h, 28.0, rgba(15, 23, 42, 230));
+                ui.border(play_btn_x, play_btn_y, play_btn_w, box_h, 28.0, rgba(56, 189, 248, 180));
+
+                ui.text(Face::SemiBold, 12.0, play_btn_x + 18.0, play_btn_y + 8.0, rgba(248, 250, 252, 255), progress.stage.label());
+                ui.text(Face::SemiBold, 12.0, play_btn_x + play_btn_w - 55.0, play_btn_y + 8.0, rgba(52, 211, 153, 255), &format!("{:.1}%", pct));
+
+                let bar_y = play_btn_y + 26.0;
+                let bar_w = play_btn_w - 36.0;
+                ui.rounded(play_btn_x + 18.0, bar_y, bar_w, 8.0, 4.0, rgba(30, 41, 59, 255));
+                let fill_w = (bar_w * fraction.clamp(0.02, 1.0)).min(bar_w);
+                ui.gradient(play_btn_x + 18.0, bar_y, fill_w, 8.0, rgba(52, 211, 153, 255), rgba(6, 182, 212, 255));
+
+                let stat = format!("Общий: {:.0}%  •  Этап {}/6", overall_pct, current + 1);
+                ui.text(Face::Regular, 10.0, play_btn_x + 18.0, play_btn_y + 38.0, rgba(148, 163, 184, 255), &stat);
+            } else {
+                let play_label = if installed {
+                    "▶   Н А Ч А Т Ь   И Г Р У"
+                } else if self.error.is_some() {
+                    "ПОПРОБОВАТЬ СНОВА"
                 } else {
-                    &self.catalog.config.name
+                    "СКАЧАТЬ MINECRAFT 26.3"
                 };
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [left_x + 12.0, content_top + 24.0, field_w, 34.0],
-                    nick_display,
-                    Action::Field("name"),
-                    false,
-                );
-                let is_editing_name = self.catalog.editing == Some("name");
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [left_x + 12.0 + field_w + 6.0, content_top + 24.0, 80.0, 34.0],
-                    if is_editing_name { "OK" } else { "Сохранить" },
-                    Action::FinishNameEdit,
-                    is_editing_name,
-                );
 
-                // 2. Settings button (Indigo gradient)
-                let set_btn_top = content_top + nick_h + 8.0;
-                let set_btn_h = 38.0;
-                let repo_w = 76.0;
-                let set_w = col_w - repo_w - 8.0;
-                ui.gradient(left_x, set_btn_top, set_w, set_btn_h, rgba(99, 102, 241, 230), rgba(67, 56, 202, 230));
-                ui.border(left_x, set_btn_top, set_w, set_btn_h, 6.0, rgba(165, 180, 252, 190));
-                let set_txt = "Настройки лаунчера";
-                let set_tw = ui.measure(Face::Medium, 13.0, set_txt);
-                let sliders_w = 16.0;
-                let sliders_h = 12.0;
-                let total_set_w = sliders_w + 8.0 + set_tw;
-                let set_start_x = left_x + (set_w - total_set_w) * 0.5;
-                ui.sliders_icon(set_start_x, set_btn_top + (set_btn_h - sliders_h) * 0.5, sliders_w, sliders_h, rgba(255, 255, 255, 220));
-                ui.text(Face::Medium, 13.0, set_start_x + sliders_w + 8.0, set_btn_top + 12.0, rgba(255, 255, 255, 255), set_txt);
-                self.targets.push(([left_x, set_btn_top, set_w, set_btn_h], Action::Page(Page::Settings)));
-
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [left_x + set_w + 8.0, set_btn_top, repo_w, set_btn_h],
-                    "GitHub",
-                    Action::Repository,
-                    false,
-                );
-
-                // 3. Changelog card
-                let cl_top = set_btn_top + set_btn_h + 8.0;
-                let cl_h = (content_bottom - cl_top).max(80.0);
-                ui.gradient(left_x, cl_top, col_w, cl_h, rgba(22, 28, 40, 230), rgba(14, 18, 26, 230));
-                ui.border(left_x, cl_top, col_w, cl_h, 6.0, rgba(51, 65, 85, 180));
-                ui.text(Face::SemiBold, 13.0, left_x + 12.0, cl_top + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.0");
-                ui.text(Face::Regular, 11.0, left_x + col_w - 74.0, cl_top + 12.0, rgba(148, 163, 184, 255), "v1.0 Release");
-
-                let logs = [
-                    "• Оптимизация Vulkan шейдинга и высокий FPS",
-                    "• Сенсорное управление Bedrock Touch",
-                    "• Поддержка оффлайн игры и Java серверов",
-                    "• Менеджер модов, ресурспаков и шейдеров",
-                    "• Экономия ОЗУ и стабильность от 3 ГБ",
-                ];
-                for (idx, title) in logs.iter().enumerate() {
-                    let y = cl_top + 30.0 + idx as f32 * 20.0;
-                    if y + 14.0 <= cl_top + cl_h {
-                        ui.text(Face::Regular, 11.0, left_x + 12.0, y, rgba(148, 163, 184, 255), title);
-                    }
+                let p_radius = play_btn_h * 0.5; // 28.0 - perfectly rounded capsule!
+                if installed {
+                    // Vibrant cosmic gradient (Indigo to Cyan)
+                    ui.gradient(play_btn_x, play_btn_y, play_btn_w, play_btn_h, rgba(79, 70, 229, 255), rgba(6, 182, 212, 255));
+                    let glow = (180.0 + pulse * 75.0) as u8;
+                    ui.border(play_btn_x, play_btn_y, play_btn_w, play_btn_h, p_radius, rgba(165, 180, 252, glow));
+                } else {
+                    ui.gradient(play_btn_x, play_btn_y, play_btn_w, play_btn_h, rgba(59, 130, 246, 255), rgba(37, 99, 235, 255));
+                    ui.border(play_btn_x, play_btn_y, play_btn_w, play_btn_h, p_radius, rgba(147, 197, 253, 200));
                 }
 
-                // --- RIGHT PANEL ---
-                // 1. Hero / Version card with gradient
-                let ver_card_top = content_top;
-                let ver_card_h = 100.0;
-                ui.gradient(right_x, ver_card_top, col_w, ver_card_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(right_x, ver_card_top, col_w, ver_card_h, 6.0, rgba(71, 85, 105, 180));
-                
-                // Real app icon from icon.jpg + Titles + Pulsing icon border
-                let h_glow = (180.0 + pulse * 75.0) as u8;
-                ui.rounded(right_x + 12.0, ver_card_top + 10.0, 38.0, 38.0, 8.0, rgba(15, 23, 42, 255));
-                ui.draw_icon_rgba(right_x + 12.0, ver_card_top + 10.0, 38.0, 38.0, NEBULA_ICON, 96, 96);
-                ui.border(right_x + 12.0, ver_card_top + 10.0, 38.0, 38.0, 8.0, rgba(129, 140, 248, h_glow));
-                ui.text(Face::SemiBold, 15.0, right_x + 58.0, ver_card_top + 10.0, rgba(248, 250, 252, 255), "MINECRAFT JAVA");
-                ui.text(Face::Regular, 11.0, right_x + 58.0, ver_card_top + 28.0, rgba(148, 163, 184, 255), "26.3 Release • Nebula Engine");
+                let font_size = 17.0;
+                let text_w = ui.measure(Face::SemiBold, font_size, play_label);
+                let text_x = play_btn_x + (play_btn_w - text_w) * 0.5;
+                let text_y = play_btn_y + (play_btn_h - font_size * 1.1) * 0.5;
+                ui.text(Face::SemiBold, font_size, text_x, text_y, rgba(255, 255, 255, 255), play_label);
 
-                let (st_txt, st_col) = if installing {
-                    ("Установка...", rgba(56, 189, 248, 255))
-                } else if installed {
-                    ("Готово к игре", rgba(52, 211, 153, 255))
-                } else {
-                    ("Нужна загрузка", rgba(251, 191, 36, 255))
-                };
-                let st_w = ui.measure(Face::Medium, 11.0, st_txt);
-                let st_x = right_x + col_w - st_w - 14.0;
-                ui.rounded(st_x - 10.0, ver_card_top + 14.0, 6.0, 6.0, 3.0, st_col);
-                ui.text(Face::Medium, 11.0, st_x, ver_card_top + 11.0, st_col, st_txt);
-
-                // Profile and Renderer buttons side by side
-                let sub_btn_w = (col_w - 24.0 - 8.0) * 0.5;
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [right_x + 12.0, ver_card_top + 54.0, sub_btn_w, 36.0],
-                    &format!("Профиль: {}", self.catalog.config.profile),
-                    Action::Profile,
-                    false,
-                );
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [right_x + 12.0 + sub_btn_w + 8.0, ver_card_top + 54.0, sub_btn_w, 36.0],
-                    &format!("Графика: {}", self.catalog.config.renderer.label()),
-                    Action::Renderer,
-                    false,
-                );
-
-                // 2. Play or Progress Area
-                let play_btn_h = 54.0;
-                let play_top = (content_bottom - play_btn_h).max(ver_card_top + ver_card_h + 12.0);
-
-                if installing {
-                    let current = InstallStage::ALL.iter().position(|s| *s == progress.stage).unwrap_or(0);
-                    let fraction = if progress.total > 0 { progress.done as f32 / progress.total as f32 } else { 0.0 };
-                    let pct = (fraction * 100.0).clamp(0.0, 100.0);
-                    let overall_pct = ((current as f32 + fraction.clamp(0.0, 1.0)) / 6.0 * 100.0).clamp(0.0, 100.0);
-
-                    let box_y = (play_top - 40.0).max(ver_card_top + ver_card_h + 8.0);
-                    let box_h = play_btn_h + 40.0;
-                    ui.gradient(right_x, box_y, col_w, box_h, rgba(22, 29, 44, 230), rgba(15, 20, 30, 230));
-                    ui.border(right_x, box_y, col_w, box_h, 8.0, rgba(56, 189, 248, 160));
-
-                    // Title with pulsating animated status
-                    ui.text(Face::SemiBold, 14.0, right_x + 12.0, box_y + 10.0, rgba(248, 250, 252, 255), progress.stage.label());
-                    ui.text(Face::SemiBold, 15.0, right_x + col_w - 65.0, box_y + 10.0, rgba(52, 211, 153, 255), &format!("{:.1}%", pct));
-
-                    // Exact detail string (bytes/files count)
-                    let detail = match progress.stage {
-                        InstallStage::Download => format!(
-                            "{:.1} / {:.1} МБ  ({:.0}% файла)",
-                            progress.done as f64 / 1_048_576.0,
-                            progress.total as f64 / 1_048_576.0,
-                            pct
-                        ),
-                        InstallStage::Controls => format!("{} / {} файлов управления", progress.done, progress.total),
-                        InstallStage::WorldData => "Распаковка таблиц и генерации мира...".into(),
-                        InstallStage::Extract => "Извлечение игровых ассетов и текстур...".into(),
-                        _ => format!("Обработка данных... {:.0}%", pct),
-                    };
-                    ui.text(Face::Regular, 11.0, right_x + 12.0, box_y + 28.0, rgba(148, 163, 184, 255), &detail);
-
-                    // Stage Progress bar
-                    let bar_y = box_y + 46.0;
-                    let bar_w = col_w - 24.0;
-                    let bar_h = 10.0;
-                    ui.gradient(right_x + 12.0, bar_y, bar_w, bar_h, rgba(15, 23, 42, 255), rgba(30, 41, 59, 255));
-                    ui.border(right_x + 12.0, bar_y, bar_w, bar_h, 5.0, rgba(51, 65, 85, 200));
-
-                    let fill_w = (bar_w * fraction.clamp(0.02, 1.0)).min(bar_w);
-                    ui.gradient(right_x + 12.0, bar_y, fill_w, bar_h, rgba(52, 211, 153, 255), rgba(16, 185, 129, 255));
-
-                    // Animated wave pulse on progress bar
-                    let wave_pos = (now_millis % 1600) as f32 / 1600.0;
-                    let wave_x = right_x + 12.0 + (fill_w - 14.0).max(0.0) * wave_pos;
-                    ui.rounded(wave_x, bar_y + 1.0, 12.0, bar_h - 2.0, 4.0, rgba(255, 255, 255, (120.0 * pulse + 60.0) as u8));
-
-                    // Overall percentage footer
-                    let overall_text = format!("Общий прогресс: {:.0}%  •  Этап {} из 6", overall_pct, current + 1);
-                    ui.text(Face::Medium, 11.0, right_x + 12.0, box_y + 64.0, rgba(203, 213, 225, 255), &overall_text);
-                } else {
-                    let play_label = if installed {
-                        "И Г Р А Т Ь"
-                    } else if self.error.is_some() {
-                        "ПОВТОРИТЬ ЗАГРУЗКУ"
-                    } else {
-                        "СКАЧАТЬ MINECRAFT 26.3"
-                    };
-
-                    // Animated pulsing gradient Play button
-                    if installed {
-                        let glow = (180.0 + pulse * 75.0) as u8;
-                        ui.gradient(right_x, play_top, col_w, play_btn_h, rgba(34, 197, 94, 255), rgba(16, 149, 74, 255));
-                        ui.border(right_x, play_top, col_w, play_btn_h, 8.0, rgba(74, 222, 128, glow));
-                    } else {
-                        ui.gradient(right_x, play_top, col_w, play_btn_h, rgba(59, 130, 246, 255), rgba(37, 99, 235, 255));
-                        ui.border(right_x, play_top, col_w, play_btn_h, 8.0, rgba(147, 197, 253, 200));
-                    }
-                    let font_size = 18.0;
-                    let label_fit = ui.fit_text(Face::SemiBold, font_size, play_label, col_w - 24.0);
-                    let text_w = ui.measure(Face::SemiBold, font_size, &label_fit);
-                    let text_y = play_top + (play_btn_h - font_size * 1.1) * 0.5;
-                    if installed {
-                        let tri_sz = 14.0;
-                        let total_w = tri_sz + 10.0 + text_w;
-                        let text_start = right_x + (col_w - total_w) * 0.5;
-                        ui.play_triangle(text_start, play_top + (play_btn_h - tri_sz) * 0.5, tri_sz, rgba(255, 255, 255, 255));
-                        ui.text(Face::SemiBold, font_size, text_start + tri_sz + 10.0, text_y, rgba(255, 255, 255, 255), &label_fit);
-                    } else {
-                        let text_x = right_x + (col_w - text_w) * 0.5;
-                        ui.text(Face::SemiBold, font_size, text_x, text_y, rgba(255, 255, 255, 255), &label_fit);
-                    }
-                    self.targets.push(([right_x, play_top, col_w, play_btn_h], Action::Play));
-                }
+                self.targets.push(([play_btn_x, play_btn_y, play_btn_w, play_btn_h], Action::Play));
             }
+
+            // Quick Status Capsule Chips below Hero Card
+            let chips_y = hero_y + hero_h + 8.0;
+            let chips_h = 36.0;
+            let chip_cnt = 4.0;
+            let chip_gap = 6.0;
+            let chip_w = (hero_w - (chip_cnt - 1.0) * chip_gap) / chip_cnt;
+
+            button(
+                &mut ui,
+                &mut self.targets,
+                [content_margin, chips_y, chip_w, chips_h],
+                &format!("⚡ {}", self.catalog.config.renderer.label()),
+                Action::Renderer,
+                false,
+            );
+            button(
+                &mut ui,
+                &mut self.targets,
+                [content_margin + chip_w + chip_gap, chips_y, chip_w, chips_h],
+                &format!("💾 {} МБ", self.catalog.config.cache_budget_mib),
+                Action::CacheBudget,
+                false,
+            );
+            button(
+                &mut ui,
+                &mut self.targets,
+                [content_margin + (chip_w + chip_gap) * 2.0, chips_y, chip_w, chips_h],
+                &format!("📱 {} Гц", if self.catalog.config.device.display_hz == 0 { "Авто".into() } else { format!("{} Гц", self.catalog.config.device.display_hz) }),
+                Action::DisplayHz,
+                false,
+            );
+            button(
+                &mut ui,
+                &mut self.targets,
+                [content_margin + (chip_w + chip_gap) * 3.0, chips_y, chip_w, chips_h],
+                "🧩 Моды & Паки",
+                Action::Page(Page::Mods),
+                false,
+            );
         } else if page.is_catalog() {
             ui.text(
                 Face::Medium,

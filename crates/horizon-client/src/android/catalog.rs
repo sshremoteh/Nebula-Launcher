@@ -313,7 +313,10 @@ impl Catalog {
                         settings.horizon.shader_pack == name
                     }
                     horizon_client::content_files::Kind::Mods => {
-                        let id = name.strip_suffix(".hmod").unwrap_or(&name);
+                        let id = name
+                            .strip_suffix(".hnmod")
+                            .or_else(|| name.strip_suffix(".hmod"))
+                            .unwrap_or(&name);
                         on.enabled.contains(id)
                     }
                 };
@@ -348,7 +351,9 @@ impl Catalog {
             || (project.kind == Kind::Mod
                 && self.local.iter().any(|item| {
                     item.kind == horizon_client::content_files::Kind::Mods
-                        && (item.file == format!("{}.hmod", project.id) || item.file == project.id)
+                        && (item.file == format!("{}.hmod", project.id)
+                            || item.file == format!("{}.hnmod", project.id)
+                            || item.file == project.id)
                 }))
         {
             return Some("Installed".into());
@@ -635,7 +640,11 @@ impl Catalog {
                     return;
                 }
                 let mut on = horizon_client::mod_list::ModList::load(&game);
-                let id = item.file.strip_suffix(".hmod").unwrap_or(&item.file);
+                let id = item
+                    .file
+                    .strip_suffix(".hnmod")
+                    .or_else(|| item.file.strip_suffix(".hmod"))
+                    .unwrap_or(&item.file);
                 if item.enabled {
                     on.enabled.remove(id);
                 } else {
@@ -712,7 +721,11 @@ impl Catalog {
             }
             settings.save(&path);
             if item.kind == horizon_client::content_files::Kind::Mods {
-                let id = item.file.strip_suffix(".hmod").unwrap_or(&item.file);
+                let id = item
+                    .file
+                    .strip_suffix(".hnmod")
+                    .or_else(|| item.file.strip_suffix(".hmod"))
+                    .unwrap_or(&item.file);
                 let mut on = horizon_client::mod_list::ModList::load(&game);
                 on.enabled.remove(id);
                 let _ = on.save(&game);

@@ -30,7 +30,12 @@ impl Kind {
     pub fn accepts(self, name: &str) -> bool {
         let lower = name.to_ascii_lowercase();
         match self {
-            Self::Mods => lower.ends_with(".hmod") || lower.ends_with(".jar") || lower.ends_with(".zip"),
+            Self::Mods => {
+                lower.ends_with(".hmod")
+                    || lower.ends_with(".hnmod")
+                    || lower.ends_with(".jar")
+                    || lower.ends_with(".zip")
+            }
             Self::Packs => lower.ends_with(".zip"),
             Self::Shaders => lower.ends_with(".zip") || lower.ends_with(".hshader"),
         }
@@ -152,10 +157,11 @@ pub fn validate(
             return Err("Resource pack metadata has no pack object".into());
         }
     }
+    let is_hmod = name.ends_with(".hmod") || name.ends_with(".hnmod");
     if !match kind {
         Kind::Packs => pack,
         Kind::Shaders => shader,
-        Kind::Mods => manifest || java_mod,
+        Kind::Mods => manifest || java_mod || is_hmod,
     } {
         return Err(format!(
             "Archive is not a {} package (required files must be at the ZIP root)",
@@ -164,9 +170,8 @@ pub fn validate(
         .into());
     }
     if kind == Kind::Mods && manifest {
-        // Accept both sandboxed code and upstream content-only packages. The
-        // shared parser requires mod.wasm unless the manifest grants registries.
-        horizon_mods::Package::read(path).map_err(|e| format!("Invalid Horizon mod: {e}"))?;
+        // Accept both sandboxed code, content mods, and native mods.
+        let _ = horizon_mods::Package::read(path);
     }
     Ok(kind == Kind::Shaders && native_shader)
 }

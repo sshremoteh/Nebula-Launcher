@@ -230,7 +230,11 @@ fn pack_hmod(from_dir: &std::path::Path, to_file: &std::path::Path) -> Result<()
     Ok(())
 }
 
-fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()> {
+fn stage(request: Request, mut input: std::fs::File, mut name: String) -> Result<()> {
+    name = name.trim().replace(['/', '\\', ':', '\0'], "_");
+    if name.starts_with('.') {
+        name = name.trim_start_matches('.').to_string();
+    }
     if !content_files::plain_name(&name) || !request.kind.accepts(&name) {
         return Err("Selected file has the wrong extension for this folder".into());
     }
@@ -275,10 +279,21 @@ fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()>
         })?;
         let mut mod_info: Option<(String, String)> = None;
         let name = if request.kind == Kind::Mods {
+            let lower_name = name.to_ascii_lowercase();
+            let is_direct_hmod = lower_name.ends_with(".hmod") || lower_name.ends_with(".hnmod");
             if let Ok(pkg) = horizon_mods::Package::read(&staged) {
                 let id = pkg.manifest.id;
                 let title = pkg.manifest.name;
                 mod_info = Some((id.clone(), title));
+                format!("{id}.hmod")
+            } else if is_direct_hmod {
+                let base_name = if lower_name.ends_with(".hnmod") {
+                    &name[..name.len() - 6]
+                } else {
+                    &name[..name.len() - 5]
+                };
+                let id = base_name.replace(' ', "_").to_lowercase();
+                mod_info = Some((id.clone(), base_name.to_string()));
                 format!("{id}.hmod")
             } else {
                 notice("Porting Java mod with Horizon Port-Pack...", false);
