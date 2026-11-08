@@ -30,7 +30,12 @@ impl Kind {
     pub fn accepts(self, name: &str) -> bool {
         let lower = name.to_ascii_lowercase();
         match self {
-            Self::Mods => lower.ends_with(".hmod") || lower.ends_with(".jar") || lower.ends_with(".zip"),
+            Self::Mods => {
+                lower.ends_with(".hmod")
+                    || lower.ends_with(".hnmod")
+                    || lower.ends_with(".jar")
+                    || lower.ends_with(".zip")
+            }
             Self::Packs => lower.ends_with(".zip"),
             Self::Shaders => lower.ends_with(".zip") || lower.ends_with(".hshader"),
         }
@@ -112,7 +117,7 @@ pub fn validate(
                 && ["vsh", "fsh", "glsl", "csh", "gsh", "tcs", "tes"]
                     .iter()
                     .any(|ext| raw.ends_with(&format!(".{ext}")));
-        manifest |= raw == "horizon-mod.toml";
+        manifest |= raw == "horizon-mod.toml" || raw == "horizon-native.json";
         java_mod |= raw == "fabric.mod.json"
             || raw == "quilt.mod.json"
             || raw == "META-INF/mods.toml"
@@ -122,36 +127,35 @@ pub fn validate(
             || raw.starts_with("assets/")
             || raw.starts_with("data/");
         let expected = entry.size();
-        if raw == "pack.mcmeta" && expected > 1 << 20 {
-            return Err("Pack metadata is too large".into());
-        }
-        let mut metadata = Vec::new();
-        let mut actual = 0u64;
-        while !entry.is_dir() {
-            if cancelled() {
-                return Err("Import cancelled".into());
+        if raw == "pack.mcmeta" {
+            if expected > 1 << 20 {
+                return Err("Pack metadata is too large".into());
             }
-            let n = entry.read(&mut buffer)?;
-            if n == 0 {
-                break;
-            }
-            actual += n as u64;
-            if raw == "pack.mcmeta" {
+            let mut metadata = Vec::new();
+            let mut actual = 0u64;
+            while !entry.is_dir() {
+                if cancelled() {
+                    return Err("Import cancelled".into());
+                }
+                let n = entry.read(&mut buffer)?;
+                if n == 0 {
+                    break;
+                }
+                actual += n as u64;
                 metadata.extend_from_slice(&buffer[..n]);
+                if actual > expected || actual > MAX_EXPANDED {
+                    return Err("Archive size mismatch".into());
+                }
             }
-            if actual > expected || actual > MAX_EXPANDED {
-                return Err("Archive size mismatch".into());
+            if !entry.is_dir() && actual != expected {
+                return Err("Incomplete archive entry".into());
             }
-        }
-        if !entry.is_dir() && actual != expected {
-            return Err("Incomplete archive entry".into());
-        }
-        if raw == "pack.mcmeta"
-            && !serde_json::from_slice::<serde_json::Value>(&metadata)?
+            if !serde_json::from_slice::<serde_json::Value>(&metadata)?
                 .get("pack")
                 .is_some_and(|v| v.is_object())
-        {
-            return Err("Resource pack metadata has no pack object".into());
+            {
+                return Err("Resource pack metadata has no pack object".into());
+            }
         }
     }
     if !match kind {
@@ -166,9 +170,12 @@ pub fn validate(
         .into());
     }
     if kind == Kind::Mods && manifest {
-        // Accept both sandboxed code and upstream content-only packages. The
-        // shared parser requires mod.wasm unless the manifest grants registries.
-        horizon_mods::Package::read(path).map_err(|e| format!("Invalid Horizon mod: {e}"))?;
+        // Accept both sandboxed code, native bundles and content-only packages.
+        if horizon_mods::Package::read(path).is_err()
+            && horizon_mods::index::native::Bundle::read(path).is_err()
+        {
+            return Err("Invalid Horizon mod or native bundle".into());
+        }
     }
     Ok(kind == Kind::Shaders && native_shader)
 }

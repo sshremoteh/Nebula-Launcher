@@ -79,7 +79,27 @@ fn plural(n: usize, one: &str, many: &str) -> String {
 /// `out/carry-report.json` beside it). The carry is the folder mod an
 /// install copies.
 pub fn check(jar_path: &Path, out: &Path) -> Result<Check, String> {
-    let info = jar::read(jar_path)?;
+    let mut info = jar::read(jar_path)?;
+    let mut clean_id = String::new();
+    for c in info.mod_id.chars() {
+        if c.is_ascii_lowercase() || c.is_ascii_digit() {
+            clean_id.push(c);
+        } else if c.is_ascii_uppercase() {
+            clean_id.push(c.to_ascii_lowercase());
+        } else if c == '-' || c == '.' || c == '_' {
+            clean_id.push('_');
+        }
+    }
+    while clean_id.contains("__") {
+        clean_id = clean_id.replace("__", "_");
+    }
+    let mut clean_id = clean_id.trim_matches('_').to_string();
+    if clean_id.is_empty() {
+        clean_id = "mod".to_string();
+    }
+    clean_id.truncate(64);
+    info.mod_id = clean_id;
+
     let file = fs::File::open(jar_path).map_err(|e| format!("{}: {e}", jar_path.display()))?;
     let mut zip = zip::ZipArchive::new(file).map_err(|e| format!("{}: {e}", jar_path.display()))?;
     let names: Vec<String> = zip
