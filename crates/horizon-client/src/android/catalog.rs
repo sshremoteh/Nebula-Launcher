@@ -14,6 +14,102 @@ pub fn source_only_mod(project: &Project) -> bool {
 /// Account tokens and client secrets are never bundled.
 pub const MICROSOFT_CLIENT_ID: &str = "00000000441cc96b";
 
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum AccentColor {
+    #[default]
+    Zinc,
+    Emerald,
+    Sky,
+    Amber,
+    Rose,
+    Violet,
+}
+
+impl AccentColor {
+    pub const ALL: [Self; 6] = [
+        Self::Zinc,
+        Self::Emerald,
+        Self::Sky,
+        Self::Amber,
+        Self::Rose,
+        Self::Violet,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Zinc => "Zinc (монохром)",
+            Self::Emerald => "Emerald (изумрудный)",
+            Self::Sky => "Sky (лазурный)",
+            Self::Amber => "Amber (янтарный)",
+            Self::Rose => "Rose (коралловый)",
+            Self::Violet => "Violet (фиолетовый)",
+        }
+    }
+
+    pub fn bg(self) -> u32 {
+        match self {
+            Self::Zinc => horizon_client::hud::rgba(244, 244, 245, 255),
+            Self::Emerald => horizon_client::hud::rgba(16, 185, 129, 255),
+            Self::Sky => horizon_client::hud::rgba(14, 165, 233, 255),
+            Self::Amber => horizon_client::hud::rgba(245, 158, 11, 255),
+            Self::Rose => horizon_client::hud::rgba(244, 63, 94, 255),
+            Self::Violet => horizon_client::hud::rgba(139, 92, 246, 255),
+        }
+    }
+
+    pub fn text(self) -> u32 {
+        match self {
+            Self::Zinc => horizon_client::hud::rgba(15, 17, 23, 255),
+            _ => horizon_client::hud::rgba(255, 255, 255, 255),
+        }
+    }
+
+    pub fn border(self) -> u32 {
+        match self {
+            Self::Zinc => horizon_client::hud::rgba(255, 255, 255, 200),
+            Self::Emerald => horizon_client::hud::rgba(52, 211, 153, 200),
+            Self::Sky => horizon_client::hud::rgba(56, 189, 248, 200),
+            Self::Amber => horizon_client::hud::rgba(252, 211, 77, 200),
+            Self::Rose => horizon_client::hud::rgba(251, 113, 133, 200),
+            Self::Violet => horizon_client::hud::rgba(196, 181, 253, 200),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Default, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum UiScale {
+    Compact,
+    #[default]
+    Normal,
+    Large,
+}
+
+impl UiScale {
+    pub const ALL: [Self; 3] = [
+        Self::Compact,
+        Self::Normal,
+        Self::Large,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Compact => "80% (компактный)",
+            Self::Normal => "100% (стандартный)",
+            Self::Large => "120% (крупный)",
+        }
+    }
+
+    pub fn factor(self) -> f32 {
+        match self {
+            Self::Compact => 0.8,
+            Self::Normal => 1.0,
+            Self::Large => 1.2,
+        }
+    }
+}
+
 /// Real Vulkan rendering paths; these do not select a different driver or API.
 #[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -56,6 +152,8 @@ pub struct Config {
     pub device: crate::device_preferences::Settings,
     pub shader_source: crate::shader_catalog::Origin,
     pub mod_source: crate::shader_catalog::Origin,
+    pub accent_color: AccentColor,
+    pub ui_scale: UiScale,
 }
 
 pub use horizon_client::android_gamepad::InputMode as InputHost;

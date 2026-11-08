@@ -33,6 +33,14 @@ def main():
 
     print(f"[INFO] Using native library: {lib_path}")
 
+    # Add tool paths
+    extra_paths = [
+        "/tmp/android-sdk/build-tools/34.0.0",
+        "/tmp/ndk/android-ndk-r26d/toolchains/llvm/prebuilt/linux-x86_64/bin",
+        str(Path.home() / ".local/bin"),
+    ]
+    os.environ["PATH"] = os.pathsep.join(extra_paths) + os.pathsep + os.environ.get("PATH", "")
+
     # Build directories
     work_dir = ROOT / ".local/android/build_clean"
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -64,7 +72,13 @@ def main():
 
     # 3. Link APK base resources
     print("[3/7] Linking APK with aapt2...")
-    android_jar = Path("/opt/android-sdk/platforms/android-34/android.jar")
+    android_jar_candidates = [
+        Path(os.environ.get("ANDROID_JAR", "")),
+        Path("/tmp/android-34.jar"),
+        Path("/tmp/android-sdk/platforms/android-34/android.jar"),
+        Path("/opt/android-sdk/platforms/android-34/android.jar"),
+    ]
+    android_jar = next((p for p in android_jar_candidates if p.is_file()), Path("/opt/android-sdk/platforms/android-34/android.jar"))
     base_apk = work_dir / "base_linked.apk"
     if base_apk.is_file():
         base_apk.unlink()
@@ -104,9 +118,12 @@ def main():
     print("[5/7] Preparing engine and control assets...")
     engine_data_zip = ROOT / ".local/android/engine-data.zip"
     if not engine_data_zip.is_file():
-        sys.path.insert(0, str(ROOT / "tools"))
-        import android_build
-        engine_data_zip = android_build.engine_data()
+        try:
+            sys.path.insert(0, str(ROOT / "tools"))
+            import android_build
+            engine_data_zip = android_build.engine_data()
+        except Exception as e:
+            print(f"[WARN] Engine data not prepared ({e}), continuing without prebundled engine tables.")
 
     controls_zip = ROOT / ".local/android/bedrock-controls.zip"
 
@@ -119,8 +136,9 @@ def main():
     # Strip library
     stripped_lib = work_dir / "libhorizon_android.so"
     shutil.copyfile(lib_path, stripped_lib)
+    strip_cmd = "llvm-strip" if shutil.which("llvm-strip") else "strip"
     try:
-        run(["strip", "--strip-unneeded", str(stripped_lib)])
+        run([strip_cmd, "--strip-unneeded", str(stripped_lib)])
     except Exception as e:
         print(f"[WARN] Strip failed: {e}")
 
@@ -177,7 +195,13 @@ def main():
     if final_apk.is_file():
         final_apk.unlink()
 
-    keystore = Path("/opt/android-sdk/debug.keystore")
+    keystore_candidates = [
+        Path(os.environ.get("ANDROID_KEYSTORE", "")),
+        Path("/tmp/debug.keystore"),
+        Path.home() / ".android/debug.keystore",
+        Path("/opt/android-sdk/debug.keystore"),
+    ]
+    keystore = next((k for k in keystore_candidates if k.is_file()), Path("/opt/android-sdk/debug.keystore"))
     run([
         "apksigner", "sign",
         "--ks", str(keystore),

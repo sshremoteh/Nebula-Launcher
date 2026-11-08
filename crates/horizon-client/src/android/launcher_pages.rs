@@ -66,6 +66,10 @@ pub(super) enum Action {
     ChooseWorkerLimit(u32),
     PerformanceHints,
     GpuProfile,
+    AccentColor,
+    ChooseAccentColor(crate::catalog::AccentColor),
+    UiScale,
+    ChooseUiScale(crate::catalog::UiScale),
 }
 
 pub(super) fn button(
@@ -76,18 +80,36 @@ pub(super) fn button(
     action: Action,
     accent: bool,
 ) {
+    button_accent(
+        ui,
+        targets,
+        rect,
+        label,
+        action,
+        accent,
+        crate::catalog::AccentColor::Zinc,
+    );
+}
+
+pub(super) fn button_accent(
+    ui: &mut Ui,
+    targets: &mut Vec<([f32; 4], Action)>,
+    rect: [f32; 4],
+    label: &str,
+    action: Action,
+    accent: bool,
+    accent_color: crate::catalog::AccentColor,
+) {
     let [x, y, w, h] = rect;
     if accent {
-        // Vibrant emerald gradient
-        ui.gradient(x, y, w, h, rgba(34, 197, 94, 255), rgba(16, 149, 74, 255));
-        ui.border(x, y, w, h, 6.0, rgba(74, 222, 128, 220));
+        ui.rounded(x, y, w, h, 6.0, accent_color.bg());
+        ui.border(x, y, w, h, 6.0, accent_color.border());
     } else {
-        // Modern glass slate gradient plate
-        ui.gradient(x, y, w, h, rgba(32, 40, 56, 230), rgba(20, 25, 36, 230));
-        ui.border(x, y, w, h, 6.0, rgba(58, 70, 94, 180));
+        ui.rounded(x, y, w, h, 6.0, rgba(24, 27, 34, 240));
+        ui.border(x, y, w, h, 6.0, rgba(255, 255, 255, 20));
     }
-    let padding = (w * 0.08).clamp(6.0, 16.0);
-    let base = if w < 80.0 { 12.0 } else if h > 46.0 { 16.0 } else { 14.0 };
+    let padding = (w * 0.08).clamp(6.0, 14.0);
+    let base = if w < 80.0 { 11.0 } else if h > 46.0 { 13.5 } else { 12.0 };
     let font = if matches!(action, Action::Page(_)) {
         (base * ((w - 2.0 * padding) / ui.measure(Face::Medium, base, label).max(1.0)).min(1.0))
             .max(9.0)
@@ -102,7 +124,7 @@ pub(super) fn button(
         x + padding,
         text_y,
         if accent {
-            rgba(255, 255, 255, 255)
+            accent_color.text()
         } else {
             rgba(241, 245, 249, 255)
         },
@@ -214,7 +236,12 @@ impl Launcher {
         self.list_targets.clear();
         self.list_view = None;
         let mut b = HudBatch::new([r.config.width, r.config.height]);
-        let mut ui = Ui::mobile(&gui.atlas, &mut b, (0.0, 0.0));
+        let mut ui = Ui::mobile_scaled(
+            &gui.atlas,
+            &mut b,
+            (0.0, 0.0),
+            self.catalog.config.ui_scale.factor(),
+        );
         // OEM navigation bars can remain visible even in fullscreen (keypad phones).
         // Inset the launcher layout only; keep surface and input coordinates intact.
         if let Some(window) = &self.window {
@@ -232,30 +259,20 @@ impl Launcher {
             ui.h = ui.h.min(bottom as f32 / ui.density);
         }
         let (w, h) = (ui.w, ui.h);
-        let scale = ui.density / ui.batch.scale;
-        // Deep cosmic gradient backdrop
-        ui.batch.fill_gradient(
-            &gui.atlas,
-            (0.0, 0.0, w * scale, h * scale),
-            rgba(15, 23, 42, 255),
-            rgba(8, 10, 16, 255),
-        );
+        let accent_color = self.catalog.config.accent_color;
 
-        let now_millis = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis();
-        let pulse = ((now_millis % 2400) as f32 / 2400.0 * std::f32::consts::TAU).sin() * 0.5 + 0.5;
+        // Solid obsidian minimalist backdrop (no gradients)
+        ui.rounded(0.0, 0.0, w, h, 0.0, rgba(10, 12, 16, 255));
 
         ui.text(
             Face::SemiBold,
-            if w < 400.0 { 18.0 } else if w < 700.0 { 22.0 } else { 26.0 },
+            if w < 400.0 { 13.0 } else if w < 700.0 { 14.5 } else { 15.5 },
             24.0,
-            if w < 620.0 || h > w { 16.0 } else { 22.0 },
+            if w < 620.0 || h > w { 16.0 } else { 20.0 },
             rgba(248, 250, 252, 255),
             "NEBULA LAUNCHER • 1.0 Release",
         );
-        button(
+        button_accent(
             &mut ui,
             &mut self.targets,
             [
@@ -267,6 +284,7 @@ impl Launcher {
             &self.login.status(&self.catalog.config.name),
             Action::Account,
             self.login.signed_in,
+            accent_color,
         );
         let compact = w < 620.0 || h > w;
         let page = self.catalog.page;
@@ -274,24 +292,26 @@ impl Launcher {
         // Sub-navigation bar inside Settings (when not in Main Menu)
         if page != Page::Play {
             let tab_margin = if compact { 16.0 } else { 24.0 };
-            let back_w = if compact { 80.0 } else { 100.0 };
+            let back_w = if compact { 72.0 } else { 88.0 };
+            let nav_y = 54.0;
+            let nav_h = 32.0;
             button(
                 &mut ui,
                 &mut self.targets,
-                [tab_margin, 76.0, back_w, 38.0],
+                [tab_margin, nav_y, back_w, nav_h],
                 "< Меню",
                 Action::Page(Page::Play),
                 false,
             );
             let tabs = Page::SETTINGS_TABS.len() as f32;
-            let sub_start = tab_margin + back_w + 8.0;
+            let sub_start = tab_margin + back_w + 6.0;
             let tab_width = (w - sub_start - tab_margin) / tabs;
             for (i, tab) in Page::SETTINGS_TABS.iter().enumerate() {
                 let x = sub_start + i as f32 * tab_width;
-                button(
+                button_accent(
                     &mut ui,
                     &mut self.targets,
-                    [x, 76.0, tab_width - 4.0, 38.0],
+                    [x, nav_y, tab_width - 4.0, nav_h],
                     if compact {
                         match tab {
                             Page::Installed => "Файлы",
@@ -304,6 +324,7 @@ impl Launcher {
                     },
                     Action::Page(*tab),
                     *tab == page,
+                    accent_color,
                 );
             }
         }
@@ -319,13 +340,13 @@ impl Launcher {
                 let pad = 16.0;
                 let card_w = w - 2.0 * pad;
 
-                // 1. Nickname card with gradient
+                // 1. Nickname card
                 let nick_y = 64.0;
                 let nick_h = 72.0;
-                ui.gradient(pad, nick_y, card_w, nick_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(pad, nick_y, card_w, nick_h, 6.0, rgba(59, 130, 246, 140));
-                ui.text(Face::Medium, 11.0, pad + 10.0, nick_y + 10.0, rgba(148, 163, 184, 255), "ИМЯ ИГРОКА (АВТОСОХРАНЕНИЕ)");
-                let field_w = card_w - 20.0 - 82.0;
+                ui.rounded(pad, nick_y, card_w, nick_h, 8.0, rgba(20, 23, 29, 240));
+                ui.border(pad, nick_y, card_w, nick_h, 8.0, rgba(255, 255, 255, 20));
+                ui.text(Face::Medium, 9.5, pad + 12.0, nick_y + 10.0, rgba(161, 161, 170, 255), "ИМЯ ИГРОКА (АВТОСОХРАНЕНИЕ)");
+                let field_w = card_w - 24.0 - 84.0;
                 let nick_display = if self.catalog.config.name.trim().is_empty() {
                     "Игрок (введите ник)"
                 } else {
@@ -334,53 +355,54 @@ impl Launcher {
                 button(
                     &mut ui,
                     &mut self.targets,
-                    [pad + 10.0, nick_y + 26.0, field_w, 36.0],
+                    [pad + 12.0, nick_y + 26.0, field_w, 36.0],
                     nick_display,
                     Action::Field("name"),
                     false,
                 );
                 let is_editing_name = self.catalog.editing == Some("name");
-                button(
+                button_accent(
                     &mut ui,
                     &mut self.targets,
-                    [pad + 10.0 + field_w + 6.0, nick_y + 26.0, 76.0, 36.0],
+                    [pad + 12.0 + field_w + 6.0, nick_y + 26.0, 78.0, 36.0],
                     if is_editing_name { "OK" } else { "Сохранить" },
                     Action::FinishNameEdit,
                     is_editing_name,
+                    accent_color,
                 );
 
-                // 2. Version & Profile row with gradient
+                // 2. Version & Profile row
                 let ver_y = nick_y + nick_h + 8.0;
                 let ver_h = 86.0;
-                ui.gradient(pad, ver_y, card_w, ver_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(pad, ver_y, card_w, ver_h, 6.0, rgba(71, 85, 105, 180));
+                ui.rounded(pad, ver_y, card_w, ver_h, 8.0, rgba(20, 23, 29, 240));
+                ui.border(pad, ver_y, card_w, ver_h, 8.0, rgba(255, 255, 255, 20));
                 
                 // Icon from icon.jpg
                 let icon_sz = 34.0;
-                ui.rounded(pad + 10.0, ver_y + 6.0, icon_sz, icon_sz, 6.0, rgba(15, 23, 42, 255));
-                ui.draw_icon_rgba(pad + 10.0, ver_y + 6.0, icon_sz, icon_sz, NEBULA_ICON, 96, 96);
-                ui.border(pad + 10.0, ver_y + 6.0, icon_sz, icon_sz, 6.0, rgba(129, 140, 248, (180.0 + pulse * 75.0) as u8));
+                ui.rounded(pad + 12.0, ver_y + 6.0, icon_sz, icon_sz, 6.0, rgba(15, 23, 42, 255));
+                ui.draw_icon_rgba(pad + 12.0, ver_y + 6.0, icon_sz, icon_sz, NEBULA_ICON, 96, 96);
+                ui.border(pad + 12.0, ver_y + 6.0, icon_sz, icon_sz, 6.0, rgba(255, 255, 255, 24));
 
-                ui.text(Face::SemiBold, 14.0, pad + 10.0 + icon_sz + 8.0, ver_y + 8.0, rgba(248, 250, 252, 255), "Minecraft 26.3");
-                ui.text(Face::Regular, 10.0, pad + 10.0 + icon_sz + 8.0, ver_y + 24.0, rgba(148, 163, 184, 255), "Nebula Engine");
+                ui.text(Face::SemiBold, 12.0, pad + 12.0 + icon_sz + 8.0, ver_y + 8.0, rgba(248, 250, 252, 255), "Minecraft 26.3");
+                ui.text(Face::Regular, 9.5, pad + 12.0 + icon_sz + 8.0, ver_y + 24.0, rgba(161, 161, 170, 255), "Nebula Engine");
 
                 let (st_txt, st_col) = if installing {
                     ("Установка...", rgba(56, 189, 248, 255))
                 } else if installed {
-                    ("Готово к игре", rgba(52, 211, 153, 255))
+                    ("Готово к игре", accent_color.bg())
                 } else {
                     ("Нужна загрузка", rgba(251, 191, 36, 255))
                 };
-                let st_w = ui.measure(Face::Medium, 11.0, st_txt);
+                let st_w = ui.measure(Face::Medium, 9.5, st_txt);
                 let st_x = pad + card_w - st_w - 12.0;
                 ui.rounded(st_x - 10.0, ver_y + 16.0, 6.0, 6.0, 3.0, st_col);
-                ui.text(Face::Medium, 11.0, st_x, ver_y + 13.0, st_col, st_txt);
+                ui.text(Face::Medium, 9.5, st_x, ver_y + 13.0, st_col, st_txt);
 
-                let btn_half_w = (card_w - 26.0) * 0.5;
+                let btn_half_w = (card_w - 30.0) * 0.5;
                 button(
                     &mut ui,
                     &mut self.targets,
-                    [pad + 10.0, ver_y + 44.0, btn_half_w, 36.0],
+                    [pad + 12.0, ver_y + 44.0, btn_half_w, 36.0],
                     &format!("Профиль: {}", self.catalog.config.profile),
                     Action::Profile,
                     false,
@@ -388,7 +410,7 @@ impl Launcher {
                 button(
                     &mut ui,
                     &mut self.targets,
-                    [pad + 10.0 + btn_half_w + 6.0, ver_y + 44.0, btn_half_w, 36.0],
+                    [pad + 12.0 + btn_half_w + 6.0, ver_y + 44.0, btn_half_w, 36.0],
                     &format!("Графика: {}", self.catalog.config.renderer.label()),
                     Action::Renderer,
                     false,
@@ -404,25 +426,20 @@ impl Launcher {
                     let overall_pct = ((current as f32 + fraction.clamp(0.0, 1.0)) / 6.0 * 100.0).clamp(0.0, 100.0);
 
                     let box_h = 76.0;
-                    ui.gradient(pad, play_y, card_w, box_h, rgba(22, 29, 44, 230), rgba(15, 20, 30, 230));
-                    ui.border(pad, play_y, card_w, box_h, 8.0, rgba(56, 189, 248, 160));
+                    ui.rounded(pad, play_y, card_w, box_h, 8.0, rgba(20, 23, 29, 240));
+                    ui.border(pad, play_y, card_w, box_h, 8.0, rgba(255, 255, 255, 20));
 
-                    ui.text(Face::SemiBold, 13.0, pad + 10.0, play_y + 8.0, rgba(248, 250, 252, 255), progress.stage.label());
-                    ui.text(Face::SemiBold, 14.0, pad + card_w - 55.0, play_y + 8.0, rgba(52, 211, 153, 255), &format!("{:.1}%", pct));
+                    ui.text(Face::SemiBold, 11.5, pad + 12.0, play_y + 8.0, rgba(248, 250, 252, 255), progress.stage.label());
+                    ui.text(Face::SemiBold, 12.0, pad + card_w - 55.0, play_y + 8.0, accent_color.bg(), &format!("{:.1}%", pct));
 
                     let bar_y = play_y + 30.0;
-                    let bar_w = card_w - 20.0;
-                    ui.gradient(pad + 10.0, bar_y, bar_w, 10.0, rgba(15, 23, 42, 255), rgba(30, 41, 59, 255));
-                    ui.border(pad + 10.0, bar_y, bar_w, 10.0, 5.0, rgba(51, 65, 85, 200));
-
+                    let bar_w = card_w - 24.0;
+                    ui.rounded(pad + 12.0, bar_y, bar_w, 8.0, 4.0, rgba(39, 39, 42, 255));
                     let fill_w = (bar_w * fraction.clamp(0.02, 1.0)).min(bar_w);
-                    ui.gradient(pad + 10.0, bar_y, fill_w, 10.0, rgba(52, 211, 153, 255), rgba(16, 185, 129, 255));
-
-                    let wave_x = pad + 10.0 + (fill_w - 12.0).max(0.0) * ((now_millis % 1500) as f32 / 1500.0);
-                    ui.rounded(wave_x, bar_y + 1.0, 10.0, 8.0, 4.0, rgba(255, 255, 255, (100.0 * pulse + 50.0) as u8));
+                    ui.rounded(pad + 12.0, bar_y, fill_w, 8.0, 4.0, accent_color.bg());
 
                     let stat = format!("Общий: {:.0}%  •  Этап {}/6", overall_pct, current + 1);
-                    ui.text(Face::Regular, 11.0, pad + 10.0, play_y + 48.0, rgba(148, 163, 184, 255), &stat);
+                    ui.text(Face::Regular, 9.5, pad + 12.0, play_y + 48.0, rgba(161, 161, 170, 255), &stat);
                 } else {
                     let play_label = if installed {
                         "И Г Р А Т Ь"
@@ -431,51 +448,45 @@ impl Launcher {
                     } else {
                         "СКАЧАТЬ MINECRAFT 26.3"
                     };
-                    if installed {
-                        let glow = (180.0 + pulse * 75.0) as u8;
-                        ui.gradient(pad, play_y, card_w, play_h, rgba(34, 197, 94, 255), rgba(16, 149, 74, 255));
-                        ui.border(pad, play_y, card_w, play_h, 8.0, rgba(74, 222, 128, glow));
-                    } else {
-                        ui.gradient(pad, play_y, card_w, play_h, rgba(59, 130, 246, 255), rgba(37, 99, 235, 255));
-                        ui.border(pad, play_y, card_w, play_h, 8.0, rgba(147, 197, 253, 200));
-                    }
-                    let font_size = 17.0;
-                    let label_fit = ui.fit_text(Face::SemiBold, font_size, play_label, card_w - 20.0);
+                    ui.rounded(pad, play_y, card_w, play_h, 8.0, accent_color.bg());
+                    ui.border(pad, play_y, card_w, play_h, 8.0, accent_color.border());
+                    let font_size = 14.0;
+                    let label_fit = ui.fit_text(Face::SemiBold, font_size, play_label, card_w - 24.0);
                     let text_w = ui.measure(Face::SemiBold, font_size, &label_fit);
                     if installed {
-                        let tri_sz = 12.0;
-                        let total_w = tri_sz + 10.0 + text_w;
+                        let tri_sz = 10.0;
+                        let total_w = tri_sz + 8.0 + text_w;
                         let text_start = pad + (card_w - total_w) * 0.5;
-                        ui.play_triangle(text_start, play_y + (play_h - tri_sz) * 0.5, tri_sz, rgba(255, 255, 255, 255));
-                        ui.text(Face::SemiBold, font_size, text_start + tri_sz + 10.0, play_y + (play_h - font_size * 1.1) * 0.5, rgba(255, 255, 255, 255), &label_fit);
+                        ui.play_triangle(text_start, play_y + (play_h - tri_sz) * 0.5, tri_sz, accent_color.text());
+                        ui.text(Face::SemiBold, font_size, text_start + tri_sz + 8.0, play_y + (play_h - font_size * 1.1) * 0.5, accent_color.text(), &label_fit);
                     } else {
                         let text_x = pad + (card_w - text_w) * 0.5;
                         let text_y = play_y + (play_h - font_size * 1.1) * 0.5;
-                        ui.text(Face::SemiBold, font_size, text_x, text_y, rgba(255, 255, 255, 255), &label_fit);
+                        ui.text(Face::SemiBold, font_size, text_x, text_y, accent_color.text(), &label_fit);
                     }
                     self.targets.push(([pad, play_y, card_w, play_h], Action::Play));
                 }
 
-                // 4. Settings button (Indigo gradient)
+                // 4. Settings button (Clean dark card button)
                 let set_y = play_y + (if installing { 84.0 } else { play_h + 8.0 });
-                ui.gradient(pad, set_y, card_w, 42.0, rgba(99, 102, 241, 230), rgba(67, 56, 202, 230));
-                ui.border(pad, set_y, card_w, 42.0, 6.0, rgba(165, 180, 252, 180));
+                ui.rounded(pad, set_y, card_w, 42.0, 8.0, rgba(24, 27, 34, 240));
+                ui.border(pad, set_y, card_w, 42.0, 8.0, rgba(255, 255, 255, 20));
                 let set_label = "Настройки (моды, шейдеры, паки)";
-                let set_txt_w = ui.measure(Face::Medium, 14.0, set_label);
+                let set_txt_w = ui.measure(Face::Medium, 12.0, set_label);
                 let sliders_w = 16.0;
                 let sliders_h = 12.0;
                 let total_set_w = sliders_w + 8.0 + set_txt_w;
                 let set_start_x = pad + (card_w - total_set_w) * 0.5;
                 ui.sliders_icon(set_start_x, set_y + (42.0 - sliders_h) * 0.5, sliders_w, sliders_h, rgba(255, 255, 255, 220));
-                ui.text(Face::Medium, 14.0, set_start_x + sliders_w + 8.0, set_y + 13.0, rgba(255, 255, 255, 255), set_label);
+                ui.text(Face::Medium, 12.0, set_start_x + sliders_w + 8.0, set_y + 13.0, rgba(255, 255, 255, 255), set_label);
                 self.targets.push(([pad, set_y, card_w, 42.0], Action::Page(Page::Settings)));
 
                 // 5. Changelog
                 let cl_y = set_y + 50.0;
                 let cl_h = (h - cl_y - 12.0).max(60.0);
-                ui.gradient(pad, cl_y, card_w, cl_h, rgba(22, 28, 40, 230), rgba(14, 18, 26, 230));
-                ui.border(pad, cl_y, card_w, cl_h, 6.0, rgba(51, 65, 85, 180));
-                ui.text(Face::SemiBold, 13.0, pad + 10.0, cl_y + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.0");
+                ui.rounded(pad, cl_y, card_w, cl_h, 8.0, rgba(20, 23, 29, 240));
+                ui.border(pad, cl_y, card_w, cl_h, 8.0, rgba(255, 255, 255, 20));
+                ui.text(Face::SemiBold, 11.5, pad + 12.0, cl_y + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.0");
                 let items = [
                     "• Оптимизация Vulkan & OpenGL ES с высоким FPS",
                     "• Сенсорное управление Bedrock Touch",
@@ -485,11 +496,11 @@ impl Launcher {
                 for (idx, item) in items.iter().enumerate() {
                     let y = cl_y + 28.0 + idx as f32 * 18.0;
                     if y + 14.0 <= cl_y + cl_h {
-                        ui.text(Face::Regular, 11.0, pad + 10.0, y, rgba(148, 163, 184, 255), item);
+                        ui.text(Face::Regular, 9.5, pad + 12.0, y, rgba(161, 161, 170, 255), item);
                     }
                 }
             } else {
-                // Split-panel dashboard for landscape screens (w >= 620.0 and w >= h)
+                // Wide adaptive grid for landscape screens and tablets (w >= 620.0 and w >= h)
                 let margin = 20.0;
                 let gap = 16.0;
                 let col_w = (w - 2.0 * margin - gap) * 0.5;
@@ -499,11 +510,11 @@ impl Launcher {
                 let content_bottom = h - 16.0;
 
                 // --- LEFT PANEL ---
-                // 1. Nickname card with subtle gradient
+                // 1. Nickname card
                 let nick_h = 66.0;
-                ui.gradient(left_x, content_top, col_w, nick_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(left_x, content_top, col_w, nick_h, 6.0, rgba(59, 130, 246, 140));
-                ui.text(Face::Medium, 11.0, left_x + 12.0, content_top + 8.0, rgba(148, 163, 184, 255), "ИМЯ ИГРОКА (АВТОСОХРАНЕНИЕ)");
+                ui.rounded(left_x, content_top, col_w, nick_h, 8.0, rgba(20, 23, 29, 240));
+                ui.border(left_x, content_top, col_w, nick_h, 8.0, rgba(255, 255, 255, 20));
+                ui.text(Face::Medium, 9.5, left_x + 12.0, content_top + 8.0, rgba(161, 161, 170, 255), "ИМЯ ИГРОКА (АВТОСОХРАНЕНИЕ)");
                 let field_w = col_w - 24.0 - 86.0;
                 let nick_display = if self.catalog.config.name.trim().is_empty() {
                     "Игрок (введите ник)"
@@ -519,30 +530,31 @@ impl Launcher {
                     false,
                 );
                 let is_editing_name = self.catalog.editing == Some("name");
-                button(
+                button_accent(
                     &mut ui,
                     &mut self.targets,
                     [left_x + 12.0 + field_w + 6.0, content_top + 24.0, 80.0, 34.0],
                     if is_editing_name { "OK" } else { "Сохранить" },
                     Action::FinishNameEdit,
                     is_editing_name,
+                    accent_color,
                 );
 
-                // 2. Settings button (Indigo gradient)
+                // 2. Settings button
                 let set_btn_top = content_top + nick_h + 8.0;
                 let set_btn_h = 38.0;
                 let repo_w = 76.0;
                 let set_w = col_w - repo_w - 8.0;
-                ui.gradient(left_x, set_btn_top, set_w, set_btn_h, rgba(99, 102, 241, 230), rgba(67, 56, 202, 230));
-                ui.border(left_x, set_btn_top, set_w, set_btn_h, 6.0, rgba(165, 180, 252, 190));
+                ui.rounded(left_x, set_btn_top, set_w, set_btn_h, 8.0, rgba(24, 27, 34, 240));
+                ui.border(left_x, set_btn_top, set_w, set_btn_h, 8.0, rgba(255, 255, 255, 20));
                 let set_txt = "Настройки лаунчера";
-                let set_tw = ui.measure(Face::Medium, 13.0, set_txt);
+                let set_tw = ui.measure(Face::Medium, 12.0, set_txt);
                 let sliders_w = 16.0;
                 let sliders_h = 12.0;
                 let total_set_w = sliders_w + 8.0 + set_tw;
                 let set_start_x = left_x + (set_w - total_set_w) * 0.5;
                 ui.sliders_icon(set_start_x, set_btn_top + (set_btn_h - sliders_h) * 0.5, sliders_w, sliders_h, rgba(255, 255, 255, 220));
-                ui.text(Face::Medium, 13.0, set_start_x + sliders_w + 8.0, set_btn_top + 12.0, rgba(255, 255, 255, 255), set_txt);
+                ui.text(Face::Medium, 12.0, set_start_x + sliders_w + 8.0, set_btn_top + 12.0, rgba(255, 255, 255, 255), set_txt);
                 self.targets.push(([left_x, set_btn_top, set_w, set_btn_h], Action::Page(Page::Settings)));
 
                 button(
@@ -557,10 +569,10 @@ impl Launcher {
                 // 3. Changelog card
                 let cl_top = set_btn_top + set_btn_h + 8.0;
                 let cl_h = (content_bottom - cl_top).max(80.0);
-                ui.gradient(left_x, cl_top, col_w, cl_h, rgba(22, 28, 40, 230), rgba(14, 18, 26, 230));
-                ui.border(left_x, cl_top, col_w, cl_h, 6.0, rgba(51, 65, 85, 180));
-                ui.text(Face::SemiBold, 13.0, left_x + 12.0, cl_top + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.0");
-                ui.text(Face::Regular, 11.0, left_x + col_w - 74.0, cl_top + 12.0, rgba(148, 163, 184, 255), "v1.0 Release");
+                ui.rounded(left_x, cl_top, col_w, cl_h, 8.0, rgba(20, 23, 29, 240));
+                ui.border(left_x, cl_top, col_w, cl_h, 8.0, rgba(255, 255, 255, 20));
+                ui.text(Face::SemiBold, 11.5, left_x + 12.0, cl_top + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.0");
+                ui.text(Face::Regular, 9.5, left_x + col_w - 74.0, cl_top + 12.0, rgba(161, 161, 170, 255), "v1.0 Release");
 
                 let logs = [
                     "• Оптимизация Vulkan шейдинга и высокий FPS",
@@ -572,36 +584,35 @@ impl Launcher {
                 for (idx, title) in logs.iter().enumerate() {
                     let y = cl_top + 30.0 + idx as f32 * 20.0;
                     if y + 14.0 <= cl_top + cl_h {
-                        ui.text(Face::Regular, 11.0, left_x + 12.0, y, rgba(148, 163, 184, 255), title);
+                        ui.text(Face::Regular, 9.5, left_x + 12.0, y, rgba(161, 161, 170, 255), title);
                     }
                 }
 
                 // --- RIGHT PANEL ---
-                // 1. Hero / Version card with gradient
+                // 1. Hero / Version card
                 let ver_card_top = content_top;
                 let ver_card_h = 100.0;
-                ui.gradient(right_x, ver_card_top, col_w, ver_card_h, rgba(28, 36, 52, 230), rgba(18, 23, 34, 230));
-                ui.border(right_x, ver_card_top, col_w, ver_card_h, 6.0, rgba(71, 85, 105, 180));
+                ui.rounded(right_x, ver_card_top, col_w, ver_card_h, 8.0, rgba(20, 23, 29, 240));
+                ui.border(right_x, ver_card_top, col_w, ver_card_h, 8.0, rgba(255, 255, 255, 20));
                 
-                // Real app icon from icon.jpg + Titles + Pulsing icon border
-                let h_glow = (180.0 + pulse * 75.0) as u8;
+                // Real app icon from icon.jpg
                 ui.rounded(right_x + 12.0, ver_card_top + 10.0, 38.0, 38.0, 8.0, rgba(15, 23, 42, 255));
                 ui.draw_icon_rgba(right_x + 12.0, ver_card_top + 10.0, 38.0, 38.0, NEBULA_ICON, 96, 96);
-                ui.border(right_x + 12.0, ver_card_top + 10.0, 38.0, 38.0, 8.0, rgba(129, 140, 248, h_glow));
-                ui.text(Face::SemiBold, 15.0, right_x + 58.0, ver_card_top + 10.0, rgba(248, 250, 252, 255), "MINECRAFT JAVA");
-                ui.text(Face::Regular, 11.0, right_x + 58.0, ver_card_top + 28.0, rgba(148, 163, 184, 255), "26.3 Release • Nebula Engine");
+                ui.border(right_x + 12.0, ver_card_top + 10.0, 38.0, 38.0, 8.0, rgba(255, 255, 255, 24));
+                ui.text(Face::SemiBold, 12.5, right_x + 58.0, ver_card_top + 10.0, rgba(248, 250, 252, 255), "MINECRAFT JAVA");
+                ui.text(Face::Regular, 9.5, right_x + 58.0, ver_card_top + 28.0, rgba(161, 161, 170, 255), "26.3 Release • Nebula Engine");
 
                 let (st_txt, st_col) = if installing {
                     ("Установка...", rgba(56, 189, 248, 255))
                 } else if installed {
-                    ("Готово к игре", rgba(52, 211, 153, 255))
+                    ("Готово к игре", accent_color.bg())
                 } else {
                     ("Нужна загрузка", rgba(251, 191, 36, 255))
                 };
-                let st_w = ui.measure(Face::Medium, 11.0, st_txt);
+                let st_w = ui.measure(Face::Medium, 9.5, st_txt);
                 let st_x = right_x + col_w - st_w - 14.0;
                 ui.rounded(st_x - 10.0, ver_card_top + 14.0, 6.0, 6.0, 3.0, st_col);
-                ui.text(Face::Medium, 11.0, st_x, ver_card_top + 11.0, st_col, st_txt);
+                ui.text(Face::Medium, 9.5, st_x, ver_card_top + 11.0, st_col, st_txt);
 
                 // Profile and Renderer buttons side by side
                 let sub_btn_w = (col_w - 24.0 - 8.0) * 0.5;
@@ -634,14 +645,13 @@ impl Launcher {
 
                     let box_y = (play_top - 40.0).max(ver_card_top + ver_card_h + 8.0);
                     let box_h = play_btn_h + 40.0;
-                    ui.gradient(right_x, box_y, col_w, box_h, rgba(22, 29, 44, 230), rgba(15, 20, 30, 230));
-                    ui.border(right_x, box_y, col_w, box_h, 8.0, rgba(56, 189, 248, 160));
+                    ui.rounded(right_x, box_y, col_w, box_h, 8.0, rgba(20, 23, 29, 240));
+                    ui.border(right_x, box_y, col_w, box_h, 8.0, rgba(255, 255, 255, 20));
 
-                    // Title with pulsating animated status
-                    ui.text(Face::SemiBold, 14.0, right_x + 12.0, box_y + 10.0, rgba(248, 250, 252, 255), progress.stage.label());
-                    ui.text(Face::SemiBold, 15.0, right_x + col_w - 65.0, box_y + 10.0, rgba(52, 211, 153, 255), &format!("{:.1}%", pct));
+                    ui.text(Face::SemiBold, 11.5, right_x + 12.0, box_y + 10.0, rgba(248, 250, 252, 255), progress.stage.label());
+                    ui.text(Face::SemiBold, 12.0, right_x + col_w - 65.0, box_y + 10.0, accent_color.bg(), &format!("{:.1}%", pct));
 
-                    // Exact detail string (bytes/files count)
+                    // Exact detail string
                     let detail = match progress.stage {
                         InstallStage::Download => format!(
                             "{:.1} / {:.1} МБ  ({:.0}% файла)",
@@ -654,26 +664,19 @@ impl Launcher {
                         InstallStage::Extract => "Извлечение игровых ассетов и текстур...".into(),
                         _ => format!("Обработка данных... {:.0}%", pct),
                     };
-                    ui.text(Face::Regular, 11.0, right_x + 12.0, box_y + 28.0, rgba(148, 163, 184, 255), &detail);
+                    ui.text(Face::Regular, 9.5, right_x + 12.0, box_y + 28.0, rgba(161, 161, 170, 255), &detail);
 
                     // Stage Progress bar
                     let bar_y = box_y + 46.0;
                     let bar_w = col_w - 24.0;
-                    let bar_h = 10.0;
-                    ui.gradient(right_x + 12.0, bar_y, bar_w, bar_h, rgba(15, 23, 42, 255), rgba(30, 41, 59, 255));
-                    ui.border(right_x + 12.0, bar_y, bar_w, bar_h, 5.0, rgba(51, 65, 85, 200));
-
+                    let bar_h = 8.0;
+                    ui.rounded(right_x + 12.0, bar_y, bar_w, bar_h, 4.0, rgba(39, 39, 42, 255));
                     let fill_w = (bar_w * fraction.clamp(0.02, 1.0)).min(bar_w);
-                    ui.gradient(right_x + 12.0, bar_y, fill_w, bar_h, rgba(52, 211, 153, 255), rgba(16, 185, 129, 255));
-
-                    // Animated wave pulse on progress bar
-                    let wave_pos = (now_millis % 1600) as f32 / 1600.0;
-                    let wave_x = right_x + 12.0 + (fill_w - 14.0).max(0.0) * wave_pos;
-                    ui.rounded(wave_x, bar_y + 1.0, 12.0, bar_h - 2.0, 4.0, rgba(255, 255, 255, (120.0 * pulse + 60.0) as u8));
+                    ui.rounded(right_x + 12.0, bar_y, fill_w, bar_h, 4.0, accent_color.bg());
 
                     // Overall percentage footer
                     let overall_text = format!("Общий прогресс: {:.0}%  •  Этап {} из 6", overall_pct, current + 1);
-                    ui.text(Face::Medium, 11.0, right_x + 12.0, box_y + 64.0, rgba(203, 213, 225, 255), &overall_text);
+                    ui.text(Face::Medium, 9.5, right_x + 12.0, box_y + 64.0, rgba(203, 213, 225, 255), &overall_text);
                 } else {
                     let play_label = if installed {
                         "И Г Р А Т Ь"
@@ -683,143 +686,221 @@ impl Launcher {
                         "СКАЧАТЬ MINECRAFT 26.3"
                     };
 
-                    // Animated pulsing gradient Play button
-                    if installed {
-                        let glow = (180.0 + pulse * 75.0) as u8;
-                        ui.gradient(right_x, play_top, col_w, play_btn_h, rgba(34, 197, 94, 255), rgba(16, 149, 74, 255));
-                        ui.border(right_x, play_top, col_w, play_btn_h, 8.0, rgba(74, 222, 128, glow));
-                    } else {
-                        ui.gradient(right_x, play_top, col_w, play_btn_h, rgba(59, 130, 246, 255), rgba(37, 99, 235, 255));
-                        ui.border(right_x, play_top, col_w, play_btn_h, 8.0, rgba(147, 197, 253, 200));
-                    }
-                    let font_size = 18.0;
+                    ui.rounded(right_x, play_top, col_w, play_btn_h, 8.0, accent_color.bg());
+                    ui.border(right_x, play_top, col_w, play_btn_h, 8.0, accent_color.border());
+                    let font_size = 14.5;
                     let label_fit = ui.fit_text(Face::SemiBold, font_size, play_label, col_w - 24.0);
                     let text_w = ui.measure(Face::SemiBold, font_size, &label_fit);
                     let text_y = play_top + (play_btn_h - font_size * 1.1) * 0.5;
                     if installed {
-                        let tri_sz = 14.0;
-                        let total_w = tri_sz + 10.0 + text_w;
+                        let tri_sz = 11.0;
+                        let total_w = tri_sz + 8.0 + text_w;
                         let text_start = right_x + (col_w - total_w) * 0.5;
-                        ui.play_triangle(text_start, play_top + (play_btn_h - tri_sz) * 0.5, tri_sz, rgba(255, 255, 255, 255));
-                        ui.text(Face::SemiBold, font_size, text_start + tri_sz + 10.0, text_y, rgba(255, 255, 255, 255), &label_fit);
+                        ui.play_triangle(text_start, play_top + (play_btn_h - tri_sz) * 0.5, tri_sz, accent_color.text());
+                        ui.text(Face::SemiBold, font_size, text_start + tri_sz + 8.0, text_y, accent_color.text(), &label_fit);
                     } else {
                         let text_x = right_x + (col_w - text_w) * 0.5;
-                        ui.text(Face::SemiBold, font_size, text_x, text_y, rgba(255, 255, 255, 255), &label_fit);
+                        ui.text(Face::SemiBold, font_size, text_x, text_y, accent_color.text(), &label_fit);
                     }
                     self.targets.push(([right_x, play_top, col_w, play_btn_h], Action::Play));
                 }
             }
         } else if page.is_catalog() {
-            ui.text(
-                Face::Medium,
-                18.0,
-                32.0,
-                142.0,
-                color::TEXT,
-                if page == Page::Mods {
-                    "Моды"
-                } else if page == Page::Shaders {
-                    if w < 360.0 { "Shaders" } else { "Shader Packs" }
-                } else {
-                    "Resource Packs"
-                },
-            );
-            button(
-                &mut ui,
-                &mut self.targets,
-                [32.0, 174.0, w - 240.0, 44.0],
-                &format!(
-                    "{}{}",
-                    if page == Page::Mods {
-                        "Search / .hmod URL: "
-                    } else {
-                        "Search: "
-                    },
-                    self.catalog.query
-                ),
-                Action::Field("search"),
-                false,
-            );
-            button(
-                &mut ui,
-                &mut self.targets,
-                [w - 190.0, 174.0, 158.0, 44.0],
-                if page == Page::Mods && self.catalog.query.trim().starts_with("https://") {
-                    "Import .hmod"
-                } else {
-                    "Search"
-                },
-                Action::Search,
-                true,
-            );
-            if matches!(page, Page::Shaders | Page::Mods) {
-                use crate::shader_catalog::Origin;
-                let width = ((w - 185.0) / 2.0).clamp(58.0, 120.0);
-                for (i, origin) in [Origin::Horizon, Origin::Modrinth].into_iter().enumerate() {
-                    let rect = [w - 32.0 - (2 - i) as f32 * width, 134.0, width - 5.0, 32.0];
-                    button(
-                        &mut ui,
-                        &mut self.targets,
-                        rect,
-                        origin.source().label(),
-                        if page == Page::Mods {
-                            Action::ModSource(origin)
-                        } else {
-                            Action::ShaderSource(origin)
-                        },
-                        false,
-                    );
-                    if (if page == Page::Mods {
-                        self.catalog.config.mod_source
-                    } else {
-                        self.catalog.config.shader_source
-                    }) == origin
-                    {
-                        ui.border(rect[0], rect[1], rect[2], rect[3], 1.0, color::TEXT);
-                    }
-                }
-            }
-            let hint = match page {
-                Page::Mods
-                    if self.catalog.config.mod_source
-                        == crate::shader_catalog::Origin::Modrinth =>
-                {
-                    "Modrinth Java mods are browse-only; Fabric/Forge/NeoForge cannot run here"
-                }
-                Page::Mods => "Поиск модов или ссылка на .hmod",
-                Page::Shaders
-                    if self.catalog.config.shader_source
-                        == crate::shader_catalog::Origin::Modrinth =>
-                {
-                    "Modrinth shader ZIPs / experimental compatibility; some packs may not work"
-                }
-                Page::Shaders => "Нативные шейдер-паки .hshader",
-                _ => "Verified downloads / enable in Installed",
-            };
-            let hint = ui.fit_text(Face::Regular, 14.0, hint, w - 64.0);
-            ui.text(Face::Regular, 14.0, 32.0, 270.0, color::MUTED, &hint);
+            let pad = if compact { 16.0 } else { 24.0 };
+            let bar_y = 92.0;
+            let bar_h = 32.0;
+
             let kind = match page {
                 Page::Mods => horizon_client::content_files::Kind::Mods,
                 Page::Shaders => horizon_client::content_files::Kind::Shaders,
                 _ => horizon_client::content_files::Kind::Packs,
             };
-            let file_button_width = ((w - 72.0) / 2.0).min(158.0);
-            button(
-                &mut ui,
-                &mut self.targets,
-                [32.0, 222.0, file_button_width, 38.0],
-                "Open folder",
-                Action::OpenFolder(kind),
-                false,
-            );
-            button(
-                &mut ui,
-                &mut self.targets,
-                [w - 32.0 - file_button_width, 222.0, file_button_width, 38.0],
-                "Import file",
-                Action::Import(kind),
-                false,
-            );
+
+            let is_wide = w >= 620.0;
+
+            if is_wide {
+                // Toolbar row in landscape / wide screen:
+                // 1. Search field & Search button
+                let search_w = ((w - 2.0 * pad) * 0.30).clamp(160.0, 240.0);
+                let search_label = if self.catalog.query.is_empty() {
+                    match page {
+                        Page::Mods => "Поиск или .hmod URL...",
+                        Page::Shaders => "Поиск шейдеров...",
+                        _ => "Поиск паков...",
+                    }
+                } else {
+                    &self.catalog.query
+                };
+                button(
+                    &mut ui,
+                    &mut self.targets,
+                    [pad, bar_y, search_w, bar_h],
+                    search_label,
+                    Action::Field("search"),
+                    false,
+                );
+                let is_import_url = page == Page::Mods && self.catalog.query.trim().starts_with("https://");
+                let search_btn_w = if is_import_url { 78.0 } else { 62.0 };
+                let search_btn_label = if is_import_url { "Импорт" } else { "Найти" };
+                button_accent(
+                    &mut ui,
+                    &mut self.targets,
+                    [pad + search_w + 6.0, bar_y, search_btn_w, bar_h],
+                    search_btn_label,
+                    Action::Search,
+                    is_import_url,
+                    accent_color,
+                );
+
+                // 2. Origin switcher (Horizon / Modrinth) for Mods and Shaders
+                if matches!(page, Page::Shaders | Page::Mods) {
+                    use crate::shader_catalog::Origin;
+                    let src_start = pad + search_w + 6.0 + search_btn_w + 10.0;
+                    let src_btn_w = 68.0;
+                    for (i, origin) in [Origin::Horizon, Origin::Modrinth].into_iter().enumerate() {
+                        let active = (if page == Page::Mods {
+                            self.catalog.config.mod_source
+                        } else {
+                            self.catalog.config.shader_source
+                        }) == origin;
+                        let rect = [src_start + i as f32 * (src_btn_w + 4.0), bar_y, src_btn_w, bar_h];
+                        button_accent(
+                            &mut ui,
+                            &mut self.targets,
+                            rect,
+                            origin.source().label(),
+                            if page == Page::Mods {
+                                Action::ModSource(origin)
+                            } else {
+                                Action::ShaderSource(origin)
+                            },
+                            active,
+                            accent_color,
+                        );
+                    }
+                }
+
+                // 3. Action buttons (Folder / Import) aligned right
+                let file_btn_w = 66.0;
+                let import_x = w - pad - file_btn_w;
+                let folder_x = import_x - 6.0 - file_btn_w;
+                button(
+                    &mut ui,
+                    &mut self.targets,
+                    [folder_x, bar_y, file_btn_w, bar_h],
+                    "Папка",
+                    Action::OpenFolder(kind),
+                    false,
+                );
+                button(
+                    &mut ui,
+                    &mut self.targets,
+                    [import_x, bar_y, file_btn_w, bar_h],
+                    "Импорт",
+                    Action::Import(kind),
+                    false,
+                );
+            } else {
+                // Compact / Portrait layout (2 compact rows)
+                let search_btn_w = 64.0;
+                let search_w = w - 2.0 * pad - search_btn_w - 6.0;
+                let search_label = if self.catalog.query.is_empty() {
+                    match page {
+                        Page::Mods => "Поиск или .hmod URL...",
+                        Page::Shaders => "Поиск шейдеров...",
+                        _ => "Поиск паков...",
+                    }
+                } else {
+                    &self.catalog.query
+                };
+                button(
+                    &mut ui,
+                    &mut self.targets,
+                    [pad, bar_y, search_w, bar_h],
+                    search_label,
+                    Action::Field("search"),
+                    false,
+                );
+                let is_import_url = page == Page::Mods && self.catalog.query.trim().starts_with("https://");
+                let search_btn_label = if is_import_url { "Импорт" } else { "Найти" };
+                button_accent(
+                    &mut ui,
+                    &mut self.targets,
+                    [pad + search_w + 6.0, bar_y, search_btn_w, bar_h],
+                    search_btn_label,
+                    Action::Search,
+                    is_import_url,
+                    accent_color,
+                );
+
+                let row2_y = bar_y + bar_h + 6.0;
+                let row2_h = 30.0;
+                if matches!(page, Page::Shaders | Page::Mods) {
+                    use crate::shader_catalog::Origin;
+                    let src_btn_w = 66.0;
+                    for (i, origin) in [Origin::Horizon, Origin::Modrinth].into_iter().enumerate() {
+                        let active = (if page == Page::Mods {
+                            self.catalog.config.mod_source
+                        } else {
+                            self.catalog.config.shader_source
+                        }) == origin;
+                        let rect = [pad + i as f32 * (src_btn_w + 4.0), row2_y, src_btn_w, row2_h];
+                        button_accent(
+                            &mut ui,
+                            &mut self.targets,
+                            rect,
+                            origin.source().label(),
+                            if page == Page::Mods {
+                                Action::ModSource(origin)
+                            } else {
+                                Action::ShaderSource(origin)
+                            },
+                            active,
+                            accent_color,
+                        );
+                    }
+                }
+                let file_btn_w = 62.0;
+                let import_x = w - pad - file_btn_w;
+                let folder_x = import_x - 4.0 - file_btn_w;
+                button(
+                    &mut ui,
+                    &mut self.targets,
+                    [folder_x, row2_y, file_btn_w, row2_h],
+                    "Папка",
+                    Action::OpenFolder(kind),
+                    false,
+                );
+                button(
+                    &mut ui,
+                    &mut self.targets,
+                    [import_x, row2_y, file_btn_w, row2_h],
+                    "Импорт",
+                    Action::Import(kind),
+                    false,
+                );
+            }
+
+            // Optional notice for Modrinth
+            let modrinth_notice = if page == Page::Mods && self.catalog.config.mod_source == crate::shader_catalog::Origin::Modrinth {
+                Some("Modrinth Java моды доступны только для просмотра (нужен Forge/Fabric)")
+            } else if page == Page::Shaders && self.catalog.config.shader_source == crate::shader_catalog::Origin::Modrinth {
+                Some("Modrinth шейдеры экспериментальны; некоторые паки могут не работать")
+            } else {
+                None
+            };
+
+            let top_base = if is_wide { bar_y + bar_h + 8.0 } else { bar_y + bar_h * 2.0 + 14.0 };
+            let top = if let Some(notice) = modrinth_notice {
+                let fit_notice = ui.fit_text(Face::Regular, 9.5, notice, w - 2.0 * pad);
+                ui.text(Face::Regular, 9.5, pad, top_base, rgba(251, 191, 36, 220), &fit_notice);
+                top_base + 16.0
+            } else {
+                top_base
+            };
+
+            let bottom = h - 40.0;
+
             let bundled: Vec<_> = if page == Page::Mods
                 && self.catalog.config.mod_source == crate::shader_catalog::Origin::Horizon
             {
@@ -847,128 +928,165 @@ impl Launcher {
                 })
                 .collect();
             let row_count = bundled.len() + catalog_rows.len();
-            let top = 296.0;
-            let bottom = h - 112.0;
-            self.catalog.scroll = self
-                .catalog
-                .scroll
-                .clamp(0.0, (row_count as f32 * 78.0 - (bottom - top)).max(0.0));
-            self.list_view = Some([
-                top,
-                bottom,
-                (row_count as f32 * 78.0 - (bottom - top)).max(0.0),
-            ]);
-            for (row, (id, title, description)) in bundled.iter().enumerate() {
-                let y = top + row as f32 * 78.0 - self.catalog.scroll;
-                if y < top - 1.0 || y + 68.0 > bottom {
-                    continue;
-                }
-                let title = ui.fit_text(Face::Medium, 19.0, title, w - 214.0);
-                let summary = ui.fit_text(Face::Regular, 14.0, description, w - 214.0);
-                ui.text(Face::Medium, 19.0, 32.0, y, color::TEXT, &title);
-                ui.text(Face::Regular, 14.0, 32.0, y + 29.0, color::MUTED, &summary);
-                button(
-                    &mut ui,
-                    &mut self.targets,
-                    [w - 150.0, y, 118.0, 42.0],
-                    if self.catalog.bundled_enabled.contains(*id) {
-                        "Disable"
-                    } else {
-                        "Enable"
-                    },
-                    Action::ToggleBundled(id),
-                    false,
-                );
-            }
-            for (row, (i, p)) in catalog_rows.into_iter().enumerate() {
-                let y = top + (row + bundled.len()) as f32 * 78.0 - self.catalog.scroll;
-                let download = self.catalog.download_label(p);
-                if download.is_none()
-                    && !crate::catalog::source_only_mod(p)
-                    && !(p.kind == crate::browser::Kind::Mod
-                        && p.source == crate::browser::SourceId::Modrinth)
-                {
-                    self.list_targets
-                        .push(([w - 150.0, y, 118.0, 70.0], Action::Install(i)));
-                }
-                if y < top || y + 70.0 > bottom {
-                    continue;
-                }
-                let title = ui.fit_text(Face::Medium, 19.0, &p.title, w - 214.0);
-                let summary = ui.fit_text(Face::Regular, 14.0, &p.summary, w - 214.0);
-                ui.text(Face::Medium, 19.0, 32.0, y, color::TEXT, &title);
-                ui.text(Face::Regular, 14.0, 32.0, y + 29.0, color::MUTED, &summary);
-                if let Some(state) = download {
-                    ui.text(Face::Medium, 16.0, w - 150.0, y + 12.0, color::TEXT, &state);
-                } else if p.kind == crate::browser::Kind::Mod
-                    && p.source == crate::browser::SourceId::Modrinth
-                {
-                    ui.text(
-                        Face::Regular,
-                        14.0,
-                        w - 150.0,
-                        y + 12.0,
-                        color::MUTED,
-                        "Java mod",
-                    );
-                } else if crate::catalog::source_only_mod(p) {
-                    ui.text(
-                        Face::Regular,
-                        14.0,
-                        w - 150.0,
-                        y + 12.0,
-                        color::MUTED,
-                        ".hnmod: later",
-                    );
-                } else if p.kind == crate::browser::Kind::Mod && !cfg!(target_pointer_width = "64")
-                {
-                    ui.text(
-                        Face::Regular,
-                        14.0,
-                        w - 150.0,
-                        y + 12.0,
-                        color::MUTED,
-                        "64-bit required",
-                    );
+            let card_h = 48.0;
+            let row_pitch = 52.0;
+            let maximum = (row_count as f32 * row_pitch - (bottom - top)).max(0.0);
+            self.catalog.scroll = self.catalog.scroll.clamp(0.0, maximum);
+            self.list_view = Some([top, bottom, maximum]);
+
+            let card_w = w - 2.0 * pad;
+            let btn_w = if compact { 76.0 } else { 88.0 };
+            let btn_h = 28.0;
+
+            if row_count == 0 {
+                let empty_msg = if !self.catalog.query.is_empty() {
+                    "Ничего не найдено по вашему запросу"
+                } else if self.catalog.status.contains("Loading") || self.catalog.status.contains("Search") {
+                    "Загрузка каталога..."
                 } else {
-                    button(
+                    "Нет доступных элементов в каталоге"
+                };
+                let empty_w = ui.measure(Face::Medium, 12.0, empty_msg);
+                ui.text(Face::Medium, 12.0, (w - empty_w) * 0.5, top + 36.0, color::MUTED, empty_msg);
+            }
+
+            for (row, (id, title, description)) in bundled.iter().enumerate() {
+                let y = top + row as f32 * row_pitch - self.catalog.scroll;
+                if y + card_h < top || y > bottom {
+                    continue;
+                }
+                let enabled = self.catalog.bundled_enabled.contains(*id);
+                ui.rounded(pad, y, card_w, card_h, 6.0, rgba(20, 23, 29, 230));
+                if enabled {
+                    ui.border(pad, y, card_w, card_h, 6.0, accent_color.border());
+                } else {
+                    ui.border(pad, y, card_w, card_h, 6.0, rgba(255, 255, 255, 14));
+                }
+
+                let max_text_w = card_w - btn_w - 28.0;
+                let fit_title = ui.fit_text(Face::SemiBold, 12.0, title, max_text_w);
+                let fit_summary = ui.fit_text(Face::Regular, 9.5, description, max_text_w);
+                ui.text(Face::SemiBold, 12.0, pad + 12.0, y + 8.0, rgba(248, 250, 252, 255), &fit_title);
+                ui.text(Face::Regular, 9.5, pad + 12.0, y + 26.0, rgba(148, 163, 184, 255), &fit_summary);
+
+                let btn_x = pad + card_w - 10.0 - btn_w;
+                let btn_y = y + (card_h - btn_h) * 0.5;
+                if y >= top - 2.0 && y + card_h <= bottom + 2.0 {
+                    button_accent(
                         &mut ui,
                         &mut self.targets,
-                        [w - 150.0, y, 118.0, 42.0],
-                        self.catalog.install_button(p),
-                        Action::Install(i),
-                        false,
+                        [btn_x, btn_y, btn_w, btn_h],
+                        if enabled { "Отключить" } else { "Включить" },
+                        Action::ToggleBundled(id),
+                        !enabled,
+                        accent_color,
                     );
                 }
             }
+
+            for (row, (i, p)) in catalog_rows.into_iter().enumerate() {
+                let y = top + (row + bundled.len()) as f32 * row_pitch - self.catalog.scroll;
+                let download = self.catalog.download_label(p);
+                let can_install = download.is_none()
+                    && !crate::catalog::source_only_mod(p)
+                    && !(p.kind == crate::browser::Kind::Mod
+                        && p.source == crate::browser::SourceId::Modrinth);
+
+                if can_install {
+                    self.list_targets.push(([pad + card_w - 10.0 - btn_w, y, btn_w, card_h], Action::Install(i)));
+                }
+
+                if y + card_h < top || y > bottom {
+                    continue;
+                }
+
+                ui.rounded(pad, y, card_w, card_h, 6.0, rgba(20, 23, 29, 230));
+                ui.border(pad, y, card_w, card_h, 6.0, rgba(255, 255, 255, 14));
+
+                let max_text_w = card_w - btn_w - 28.0;
+                let fit_title = ui.fit_text(Face::SemiBold, 12.0, &p.title, max_text_w);
+                let fit_summary = ui.fit_text(Face::Regular, 9.5, &p.summary, max_text_w);
+                ui.text(Face::SemiBold, 12.0, pad + 12.0, y + 8.0, rgba(248, 250, 252, 255), &fit_title);
+                ui.text(Face::Regular, 9.5, pad + 12.0, y + 26.0, rgba(148, 163, 184, 255), &fit_summary);
+
+                let btn_x = pad + card_w - 10.0 - btn_w;
+                let btn_y = y + (card_h - btn_h) * 0.5;
+
+                if y >= top - 2.0 && y + card_h <= bottom + 2.0 {
+                    if let Some(state) = download {
+                        let text_w = ui.measure(Face::Medium, 11.0, &state);
+                        ui.text(Face::Medium, 11.0, btn_x + (btn_w - text_w) * 0.5, btn_y + 7.0, accent_color.bg(), &state);
+                    } else if p.kind == crate::browser::Kind::Mod && p.source == crate::browser::SourceId::Modrinth {
+                        let lbl = "Java mod";
+                        let text_w = ui.measure(Face::Regular, 10.5, lbl);
+                        ui.text(Face::Regular, 10.5, btn_x + (btn_w - text_w) * 0.5, btn_y + 7.0, rgba(148, 163, 184, 255), lbl);
+                    } else if crate::catalog::source_only_mod(p) {
+                        let lbl = ".hnmod: позже";
+                        let text_w = ui.measure(Face::Regular, 10.5, lbl);
+                        ui.text(Face::Regular, 10.5, btn_x + (btn_w - text_w) * 0.5, btn_y + 7.0, rgba(148, 163, 184, 255), lbl);
+                    } else if p.kind == crate::browser::Kind::Mod && !cfg!(target_pointer_width = "64") {
+                        let lbl = "64-bit";
+                        let text_w = ui.measure(Face::Regular, 10.5, lbl);
+                        ui.text(Face::Regular, 10.5, btn_x + (btn_w - text_w) * 0.5, btn_y + 7.0, rgba(148, 163, 184, 255), lbl);
+                    } else {
+                        let label = self.catalog.install_button(p);
+                        let is_installed = label.to_lowercase().contains("installed") || label.to_lowercase().contains("установлен");
+                        button_accent(
+                            &mut ui,
+                            &mut self.targets,
+                            [btn_x, btn_y, btn_w, btn_h],
+                            label,
+                            Action::Install(i),
+                            !is_installed,
+                            accent_color,
+                        );
+                    }
+                }
+            }
+
+            // Bottom footer row
+            let foot_y = h - 34.0;
+            let foot_h = 26.0;
+            let nav_btn_w = 66.0;
             button(
                 &mut ui,
                 &mut self.targets,
-                [32.0, h - 100.0, 120.0, 40.0],
-                "Previous",
+                [pad, foot_y, nav_btn_w, foot_h],
+                "Назад",
                 Action::Previous,
                 false,
             );
             button(
                 &mut ui,
                 &mut self.targets,
-                [166.0, h - 100.0, 120.0, 40.0],
-                "Next",
+                [pad + nav_btn_w + 6.0, foot_y, nav_btn_w, foot_h],
+                "Вперед",
                 Action::Next,
                 false,
             );
+
+            let status = self.error.as_deref().unwrap_or(&self.catalog.status);
+            if !status.is_empty() {
+                let status_x = pad + nav_btn_w * 2.0 + 16.0;
+                let status_max_w = (w - pad - 72.0 - status_x).max(40.0);
+                let fit_status = ui.fit_text(Face::Regular, 9.5, status, status_max_w);
+                ui.text(Face::Regular, 9.5, status_x, foot_y + 7.0, color::MUTED, &fit_status);
+            }
         } else if page == Page::Installed {
             use horizon_client::content_files::Kind;
-            let top = 156.0;
-            let bottom = h - 100.0;
-            let row_height = if compact { 110.0 } else { 72.0 };
+            let pad = if compact { 16.0 } else { 24.0 };
+            let top = 92.0;
+            let bottom = h - 38.0;
+            let row_height = 46.0;
+            let row_pitch = 50.0;
+            let section_h = 32.0;
             let total = Kind::ALL
                 .iter()
                 .enumerate()
                 .map(|(i, k)| {
-                    48.0 + if self.catalog.sections[i] {
+                    section_h + 4.0 + if self.catalog.sections[i] {
                         self.catalog.local.iter().filter(|e| e.kind == *k).count() as f32
-                            * row_height
+                            * row_pitch
                     } else {
                         0.0
                     }
@@ -984,35 +1102,38 @@ impl Launcher {
                 let label = format!(
                     "{} {} ({count})",
                     if self.catalog.sections[section] {
-                        "-"
+                        "▾"
                     } else {
-                        "+"
+                        "▸"
                     },
                     kind.label()
                 );
+                let import_w = 70.0;
+                let sect_w = w - 2.0 * pad - import_w - 6.0;
                 self.list_targets
-                    .push(([32.0, y, w - 210.0, 40.0], Action::ToggleSection(section)));
+                    .push(([pad, y, sect_w, section_h], Action::ToggleSection(section)));
                 self.list_targets
-                    .push(([w - 165.0, y, 133.0, 40.0], Action::Import(kind)));
-                if y >= top && y + 40.0 <= bottom {
+                    .push(([w - pad - import_w, y, import_w, section_h], Action::Import(kind)));
+                if y >= top - 2.0 && y + section_h <= bottom + 2.0 {
                     button(
                         &mut ui,
                         &mut self.targets,
-                        [32.0, y, w - 210.0, 40.0],
+                        [pad, y, sect_w, section_h],
                         &label,
                         Action::ToggleSection(section),
                         false,
                     );
-                    button(
+                    button_accent(
                         &mut ui,
                         &mut self.targets,
-                        [w - 165.0, y, 133.0, 40.0],
-                        "Import",
+                        [w - pad - import_w, y, import_w, section_h],
+                        "Импорт",
                         Action::Import(kind),
                         false,
+                        accent_color,
                     );
                 }
-                offset += 48.0;
+                offset += section_h + 4.0;
                 if !self.catalog.sections[section] {
                     continue;
                 }
@@ -1024,92 +1145,103 @@ impl Launcher {
                     .filter(|(_, e)| e.kind == kind)
                 {
                     let y = top + offset - self.catalog.scroll;
-                    offset += row_height;
+                    offset += row_pitch;
+                    let card_w = w - 2.0 * pad;
+                    let action_w = 64.0;
+                    let action_h = 28.0;
+                    let toggle_x = w - pad - 10.0 - action_w * 2.0 - 6.0;
+                    let delete_x = w - pad - 10.0 - action_w;
+                    let btn_y = y + (row_height - action_h) * 0.5;
+
                     self.list_targets.push((
-                        [
-                            if compact { 32.0 } else { w - 300.0 },
-                            y,
-                            120.0,
-                            row_height - 4.0,
-                        ],
+                        [toggle_x, btn_y, action_w, action_h],
                         Action::ToggleLocal(i),
                     ));
                     self.list_targets.push((
-                        [w - 165.0, y, 133.0, row_height - 4.0],
+                        [delete_x, btn_y, action_w, action_h],
                         Action::DeleteLocal(i),
                     ));
-                    if y < top || y + row_height - 4.0 > bottom {
+                    if y + row_height < top || y > bottom {
                         continue;
                     }
-                    let title = ui.fit_text(
-                        Face::Medium,
-                        19.0,
-                        &item.title,
-                        if compact { w - 64.0 } else { w - 364.0 },
-                    );
-                    ui.text(Face::Medium, 19.0, 32.0, y, color::TEXT, &title);
+                    ui.rounded(pad, y, card_w, row_height, 6.0, rgba(20, 23, 29, 230));
+                    if item.enabled {
+                        ui.border(pad, y, card_w, row_height, 6.0, accent_color.border());
+                    } else {
+                        ui.border(pad, y, card_w, row_height, 6.0, rgba(255, 255, 255, 14));
+                    }
+
+                    let max_text_w = toggle_x - pad - 20.0;
+                    let title = ui.fit_text(Face::SemiBold, 12.0, &item.title, max_text_w);
+                    ui.text(Face::SemiBold, 12.0, pad + 12.0, y + 8.0, color::TEXT, &title);
                     ui.text(
                         Face::Regular,
-                        14.0,
-                        32.0,
-                        y + 28.0,
+                        9.5,
+                        pad + 12.0,
+                        y + 26.0,
                         color::MUTED,
                         kind.label(),
                     );
-                    if kind == Kind::Mods && !cfg!(target_pointer_width = "64") {
-                        ui.text(
-                            Face::Regular,
-                            14.0,
-                            if compact { 32.0 } else { w - 300.0 },
-                            y + if compact { 62.0 } else { 12.0 },
-                            color::MUTED,
-                            "64-bit required",
-                        );
-                    } else {
-                        toggle(
+                    if y >= top - 2.0 && y + row_height <= bottom + 2.0 {
+                        if kind == Kind::Mods && !cfg!(target_pointer_width = "64") {
+                            ui.text(
+                                Face::Regular,
+                                11.0,
+                                toggle_x,
+                                btn_y + 7.0,
+                                color::MUTED,
+                                "64-bit",
+                            );
+                        } else {
+                            button_accent(
+                                &mut ui,
+                                &mut self.targets,
+                                [toggle_x, btn_y, action_w, action_h],
+                                if item.enabled { "Вкл" } else { "Выкл" },
+                                Action::ToggleLocal(i),
+                                item.enabled,
+                                accent_color,
+                            );
+                        }
+                        button(
                             &mut ui,
                             &mut self.targets,
-                            [
-                                if compact { 32.0 } else { w - 300.0 },
-                                y + if compact { 55.0 } else { 0.0 },
-                                120.0,
-                                40.0,
-                            ],
-                            item.enabled,
-                            Action::ToggleLocal(i),
+                            [delete_x, btn_y, action_w, action_h],
+                            "Удалить",
+                            Action::DeleteLocal(i),
+                            false,
                         );
                     }
-                    button(
-                        &mut ui,
-                        &mut self.targets,
-                        [w - 165.0, y + if compact { 55.0 } else { 0.0 }, 133.0, 40.0],
-                        "Remove",
-                        Action::DeleteLocal(i),
-                        false,
-                    );
                 }
             }
         } else {
             let c = &self.catalog.config;
+            let pad = if compact { 16.0 } else { 24.0 };
             ui.text(
-                Face::Medium,
-                24.0,
-                32.0,
-                156.0,
+                Face::SemiBold,
+                13.5,
+                pad,
+                94.0,
                 color::TEXT,
-                "Launch settings",
+                "Параметры запуска",
             );
-            let row_height = if compact { 82.0 } else { 66.0 };
-            self.catalog.scroll = self
-                .catalog
-                .scroll
-                .clamp(0.0, (18.0 * row_height - (h - 130.0 - 195.0)).max(0.0));
-            self.list_view = Some([
-                195.0,
-                h - 130.0,
-                (18.0 * row_height - (h - 130.0 - 195.0)).max(0.0),
-            ]);
+            let row_height = if compact { 58.0 } else { 44.0 };
+            let top = 116.0;
+            let bottom = h - 74.0;
+            let maximum = (21.0 * row_height - (bottom - top)).max(0.0);
+            self.catalog.scroll = self.catalog.scroll.clamp(0.0, maximum);
+            self.list_view = Some([top, bottom, maximum]);
             for (i, (title, value, action)) in [
+                (
+                    "Акцентный цвет",
+                    c.accent_color.label().to_owned(),
+                    Action::AccentColor,
+                ),
+                (
+                    "Масштаб интерфейса",
+                    c.ui_scale.label().to_owned(),
+                    Action::UiScale,
+                ),
                 ("Rendering", c.renderer.label().to_owned(), Action::Renderer),
                 (
                     "Client resolution",
@@ -1228,24 +1360,25 @@ impl Launcher {
             .into_iter()
             .enumerate()
             {
-                let y = 195.0 + i as f32 * row_height - self.catalog.scroll;
+                let y = top + i as f32 * row_height - self.catalog.scroll;
+                let card_h = if compact { 50.0 } else { 38.0 };
                 self.list_targets.push((
                     [
-                        if compact { 32.0 } else { w * 0.36 },
+                        if compact { pad } else { w * 0.36 },
                         y,
-                        if compact { w - 64.0 } else { w * 0.64 - 32.0 },
-                        if compact { 70.0 } else { 46.0 },
+                        if compact { w - 2.0 * pad } else { w * 0.64 - pad },
+                        card_h,
                     ],
                     action,
                 ));
-                if y < 185.0 || y + if compact { 70.0 } else { 46.0 } > h - 130.0 {
+                if y < top - 2.0 || y + card_h > bottom + 2.0 {
                     continue;
                 }
                 ui.text(
                     Face::Regular,
-                    16.0,
-                    32.0,
-                    y + if compact { 0.0 } else { 13.0 },
+                    11.5,
+                    pad,
+                    y + if compact { 0.0 } else { 10.0 },
                     color::MUTED,
                     title,
                 );
@@ -1257,10 +1390,10 @@ impl Launcher {
                         &mut ui,
                         &mut self.targets,
                         [
-                            if compact { 32.0 } else { w * 0.36 },
-                            y + if compact { 24.0 } else { 0.0 },
-                            if compact { w - 64.0 } else { w * 0.64 - 32.0 },
-                            46.0,
+                            if compact { pad } else { w * 0.36 },
+                            y + if compact { 18.0 } else { 0.0 },
+                            if compact { w - 2.0 * pad } else { w * 0.64 - pad },
+                            36.0,
                         ],
                         match action {
                             Action::PerformanceHints => c.device.performance_hints,
@@ -1275,10 +1408,10 @@ impl Launcher {
                         &mut ui,
                         &mut self.targets,
                         [
-                            if compact { 32.0 } else { w * 0.36 },
-                            y + if compact { 24.0 } else { 0.0 },
-                            if compact { w - 64.0 } else { w * 0.64 - 32.0 },
-                            46.0,
+                            if compact { pad } else { w * 0.36 },
+                            y + if compact { 18.0 } else { 0.0 },
+                            if compact { w - 2.0 * pad } else { w * 0.64 - pad },
+                            36.0,
                         ],
                         &format!(
                             "{} {}",
@@ -1293,7 +1426,7 @@ impl Launcher {
                                     | Action::Orientation
                                     | Action::InputHost
                             ) {
-                                "v"
+                                "▾"
                             } else {
                                 ""
                             }
@@ -1303,58 +1436,64 @@ impl Launcher {
                     );
                 }
                 ui.rounded(
-                    32.0,
-                    y + if compact { 78.0 } else { 62.0 },
-                    w - 64.0,
+                    pad,
+                    y + card_h + 2.0,
+                    w - 2.0 * pad,
                     1.0,
                     0.0,
                     color::BORDER,
                 );
             }
-            button(
+            let btn_w = (w - 2.0 * pad - 8.0) * 0.5;
+            button_accent(
                 &mut ui,
                 &mut self.targets,
-                [w * 0.5 + 6.0, h - 114.0, w * 0.5 - 38.0, 42.0],
-                "Microsoft / Xbox account",
-                Action::Account,
-                true,
-            );
-            button(
-                &mut ui,
-                &mut self.targets,
-                [32.0, h - 114.0, w * 0.5 - 38.0, 42.0],
-                "Diagnostics",
+                [pad, h - 58.0, btn_w, 36.0],
+                "Диагностика",
                 Action::Logs,
                 false,
+                accent_color,
+            );
+            button_accent(
+                &mut ui,
+                &mut self.targets,
+                [pad + btn_w + 8.0, h - 58.0, btn_w, 36.0],
+                "Аккаунт Microsoft / Xbox",
+                Action::Account,
+                true,
+                accent_color,
             );
         }
-        let status = self.error.as_deref().unwrap_or(&self.catalog.status);
-        for (i, line) in status
-            .chars()
-            .collect::<Vec<_>>()
-            .chunks(110)
-            .take(2)
-            .enumerate()
-        {
-            ui.text(
-                Face::Regular,
-                14.0,
-                32.0,
-                h - 47.0 + i as f32 * 18.0,
-                color::MUTED,
-                &ui.fit_text(
+        let pad = if compact { 16.0 } else { 24.0 };
+        if self.catalog.page == Page::Play {
+            let status = self.error.as_deref().unwrap_or(&self.catalog.status);
+            for (i, line) in status
+                .chars()
+                .collect::<Vec<_>>()
+                .chunks(110)
+                .take(2)
+                .enumerate()
+            {
+                ui.text(
                     Face::Regular,
-                    14.0,
-                    &line.iter().collect::<String>(),
-                    (w - 210.0).max(40.0),
-                ),
-            );
+                    11.0,
+                    pad,
+                    h - 47.0 + i as f32 * 16.0,
+                    color::MUTED,
+                    &ui.fit_text(
+                        Face::Regular,
+                        11.0,
+                        &line.iter().collect::<String>(),
+                        (w - 210.0).max(40.0),
+                    ),
+                );
+            }
         }
         if self.catalog.page != Page::Play {
             button(
                 &mut ui,
                 &mut self.targets,
-                [w - 142.0, h - 52.0, 110.0, 32.0],
+                [w - pad - 64.0, h - 34.0, 64.0, 26.0],
                 "GitHub",
                 Action::Repository,
                 false,
@@ -1397,19 +1536,21 @@ impl Launcher {
                 "name" => self.catalog.config.name.clone(),
                 "server" => self.catalog.config.server.clone(),
                 "render_scale" => self.catalog.render_scale_text.clone(),
-                _ => format!("Search: {}", self.catalog.query),
+                "search" => self.catalog.query.clone(),
+                _ => self.catalog.query.clone(),
             };
-            for ([x, y, w, _], action) in &self.targets {
+            for ([x, y, w, h_box], action) in &self.targets {
                 if *action == Action::Field(name)
                     || (name == "render_scale" && *action == Action::RenderScale)
                 {
-                    let text = ui.fit_text(Face::Medium, 16.0, &value, w - 24.0);
-                    let caret_x = x + 12.0 + ui.measure(Face::Medium, 16.0, &text);
+                    let font_sz = if name == "search" { 11.5 } else { 13.5 };
+                    let text = ui.fit_text(Face::Medium, font_sz, &value, w - 24.0);
+                    let caret_x = x + 10.0 + ui.measure(Face::Medium, font_sz, &text);
                     ui.rounded(
                         caret_x.min(x + w - 10.0),
-                        y + 12.0,
+                        y + (h_box - 16.0) * 0.5,
                         1.0,
-                        18.0,
+                        16.0,
                         0.0,
                         color::TEXT,
                     );
@@ -1517,7 +1658,12 @@ impl Launcher {
             return Ok(());
         };
         let mut b = HudBatch::new([r.config.width, r.config.height]);
-        let ui = Ui::mobile(&self.gui.as_ref().unwrap().atlas, &mut b, (0.0, 0.0));
+        let ui = Ui::mobile_scaled(
+            &self.gui.as_ref().unwrap().atlas,
+            &mut b,
+            (0.0, 0.0),
+            self.catalog.config.ui_scale.factor(),
+        );
         let p = self.focus.and_then(|index| self.targets.get(index)).map_or(
             [
                 self.cursor.0 as f32 / ui.density,
@@ -1641,6 +1787,18 @@ impl Launcher {
                 self.catalog.status="Detailed GPU profiling records diagnostics and has overhead. Reports remain on this device.".into();
                 self.catalog.config.save(&self.home)?;
                 crate::device_runtime::configure(self.catalog.config.device);
+            }
+            Some(Action::AccentColor) => self.open_chooser(chooser::Kind::AccentColor),
+            Some(Action::ChooseAccentColor(color)) => {
+                self.catalog.config.accent_color = color;
+                self.catalog.config.save(&self.home)?;
+                self.chooser = None;
+            }
+            Some(Action::UiScale) => self.open_chooser(chooser::Kind::UiScale),
+            Some(Action::ChooseUiScale(scale)) => {
+                self.catalog.config.ui_scale = scale;
+                self.catalog.config.save(&self.home)?;
+                self.chooser = None;
             }
 
             Some(Action::ModSource(origin)) => {
@@ -1878,7 +2036,13 @@ impl Launcher {
             return 1.0;
         };
         let mut batch = HudBatch::new([r.config.width, r.config.height]);
-        Ui::mobile(&gui.atlas, &mut batch, (0.0, 0.0)).density
+        Ui::mobile_scaled(
+            &gui.atlas,
+            &mut batch,
+            (0.0, 0.0),
+            self.catalog.config.ui_scale.factor(),
+        )
+        .density
     }
 
     pub(super) fn touch_event(&mut self, events: &ActiveEventLoop, t: Touch) -> Result<()> {

@@ -343,29 +343,38 @@ impl<'a> Ui<'a> {
             batch,
         }
     }
-    /// Native launcher density on tall phone screens; game HUD scale is untouched.
-    pub fn mobile(atlas: &'a HudAtlas, batch: &'a mut HudBatch, cursor: (f32, f32)) -> Self {
+    /// Native launcher density with consistent physical element sizing on both phones and tablets.
+    pub fn mobile_scaled(
+        atlas: &'a HudAtlas,
+        batch: &'a mut HudBatch,
+        cursor: (f32, f32),
+        scale_multiplier: f32,
+    ) -> Self {
         let mut ui = Self::new(atlas, batch, cursor);
         let pw = ui.batch.width * ui.scale;
         let ph = ui.batch.height * ui.scale;
-        if ph > pw {
-            ui.density = (pw / 480.0).clamp(1.0, 4.0);
-            ui.w = pw / ui.density;
-            ui.h = ph / ui.density;
-            ui.cursor = (
-                cursor.0 * ui.scale / ui.density,
-                cursor.1 * ui.scale / ui.density,
-            );
-        } else if ph < 700.0 {
-            ui.density = (pw / 1040.0).min(ph / 700.0).clamp(0.5, 4.0);
-            ui.w = pw / ui.density;
-            ui.h = ph / ui.density;
-            ui.cursor = (
-                cursor.0 * ui.scale / ui.density,
-                cursor.1 * ui.scale / ui.density,
-            );
-        }
+        let short_edge = pw.min(ph);
+        let long_edge = pw.max(ph);
+
+        let base_density = if short_edge >= 1200.0 && long_edge >= 1800.0 {
+            (short_edge / 720.0).clamp(1.5, 3.5)
+        } else {
+            (short_edge / 412.0).clamp(1.5, 4.0)
+        };
+
+        let density = (base_density * scale_multiplier.clamp(0.7, 1.5)).clamp(1.0, 5.0);
+        ui.density = density;
+        ui.w = pw / density;
+        ui.h = ph / density;
+        ui.cursor = (
+            cursor.0 * ui.scale / density,
+            cursor.1 * ui.scale / density,
+        );
         ui
+    }
+
+    pub fn mobile(atlas: &'a HudAtlas, batch: &'a mut HudBatch, cursor: (f32, f32)) -> Self {
+        Self::mobile_scaled(atlas, batch, cursor, 1.0)
     }
 
     pub fn fit_text(&self, face: Face, size: f32, text: &str, width: f32) -> String {

@@ -63,7 +63,9 @@ def download_game(version, directory):
     # and client/server jar hashes are checked against the engine pins below.
     versions = directory / 'versions' / version
     manifest_path = versions / f'{version}.json'
-    lab.download(entry['url'], manifest_path, entry['sha1'])
+    pinned_manifest_url = f"https://piston-meta.mojang.com/v1/packages/{pins['manifest_sha1']}/{version}.json"
+    if not manifest_path.exists() or hashlib.sha1(manifest_path.read_bytes()).hexdigest() != pins['manifest_sha1']:
+        lab.download(pinned_manifest_url, manifest_path, pins['manifest_sha1'])
     manifest = json.loads(manifest_path.read_text())
     files = []
     for side in ['client', 'server']:
@@ -77,10 +79,17 @@ def download_game(version, directory):
     index_path = relative(directory / 'assets/indexes', f"{index['id']}.json")
     lab.download(index['url'], index_path, index['sha1'])
     objects = json.loads(index_path.read_text())['objects']
-    for value in objects.values():
-        checksum = value['hash']
-        name = f'{checksum[:2]}/{checksum}'
-        files.append((f'https://resources.download.minecraft.net/{name}', directory / 'assets/objects' / name, checksum))
+    wanted_prefixes = (
+        'minecraft/textures/gui/title/background/',
+        'minecraft/font/',
+        'minecraft/resourcepacks/',
+        'minecraft/lang/',
+    )
+    for key, value in objects.items():
+        if any(key.startswith(p) for p in wanted_prefixes):
+            checksum = value['hash']
+            name = f'{checksum[:2]}/{checksum}'
+            files.append((f'https://resources.download.minecraft.net/{name}', directory / 'assets/objects' / name, checksum))
     print(f'Downloading Minecraft {version}: {len(files)} verified files', flush=True)
     parallel_download(files)
     return manifest, versions / f'{version}-server.jar'
@@ -126,7 +135,9 @@ def main():
         return
     minecraft = private / 'minecraft'
     manifest, server = download_game(args.version, minecraft)
-    java_home = args.java_home or download_jdk(manifest, private / 'jdk')
+    java_candidates = [Path('/usr/lib/jvm/default'), Path('/usr/lib/jvm/java-27-openjdk')]
+    default_java = next((j for j in java_candidates if j.exists()), None)
+    java_home = args.java_home or default_java or download_jdk(manifest, private / 'jdk')
     environment = dict(os.environ, JAVA_HOME=str(java_home.resolve()))
     isolated = Path(tempfile.mkdtemp(prefix='prepare-', dir=private))
     for key in ['HORIZON_HOME', 'HORIZON_LAUNCHER_HOME', 'XDG_DATA_HOME', 'XDG_CONFIG_HOME']:

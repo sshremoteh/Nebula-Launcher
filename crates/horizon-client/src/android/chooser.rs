@@ -16,6 +16,8 @@ pub(super) enum Kind {
     Profile,
     Orientation,
     InputHost,
+    AccentColor,
+    UiScale,
 }
 pub(super) struct Chooser {
     title: &'static str,
@@ -247,6 +249,36 @@ impl Launcher {
                     choices,
                 )
             }
+            Kind::AccentColor => (
+                "Акцентный цвет",
+                "Цвет ключевых кнопок действия, индикаторов и активных элементов интерфейса.",
+                crate::catalog::AccentColor::ALL
+                    .into_iter()
+                    .map(|color| {
+                        (
+                            color.label().into(),
+                            String::new(),
+                            Action::ChooseAccentColor(color),
+                            c.accent_color == color,
+                        )
+                    })
+                    .collect(),
+            ),
+            Kind::UiScale => (
+                "Масштаб интерфейса",
+                "Калибровка размера кнопок, карточек и шрифтов под дисплей вашего устройства.",
+                crate::catalog::UiScale::ALL
+                    .into_iter()
+                    .map(|scale| {
+                        (
+                            scale.label().into(),
+                            String::new(),
+                            Action::ChooseUiScale(scale),
+                            c.ui_scale == scale,
+                        )
+                    })
+                    .collect(),
+            ),
         };
         self.chooser = Some(Chooser {
             title,
@@ -303,13 +335,13 @@ impl Chooser {
         let (w, h) = (ui.w, ui.h);
         targets.clear();
         ui.rounded(0.0, 0.0, w, h, 0.0, color::BG);
-        ui.text(Face::Medium, 28.0, 32.0, 35.0, color::TEXT, self.title);
-        ui.text(Face::Regular, 15.0, 32.0, 85.0, color::MUTED, self.help);
+        ui.text(Face::SemiBold, 16.0, 32.0, 35.0, color::TEXT, self.title);
+        ui.text(Face::Regular, 11.5, 32.0, 75.0, color::MUTED, self.help);
         if let Some(device) = &self.device {
-            ui.text(Face::Regular, 13.0, 32.0, 111.0, color::MUTED, device);
+            ui.text(Face::Regular, 10.5, 32.0, 95.0, color::MUTED, device);
         }
-        let top = 137.0;
-        let bottom = h - 100.0;
+        let top = 120.0;
+        let bottom = h - 80.0;
         self.scroll = self.scroll.clamp(
             0.0,
             (self.choices.len() as f32 * 84.0 - (bottom - top)).max(0.0),
@@ -324,8 +356,8 @@ impl Chooser {
             if *selected {
                 ui.rounded(40.0, y + 16.0, 10.0, 10.0, 5.0, color::TEXT);
             }
-            ui.text(Face::Medium, 19.0, 80.0, y + 8.0, color::TEXT, label);
-            ui.text(Face::Regular, 14.0, 80.0, y + 40.0, color::MUTED, detail);
+            ui.text(Face::Medium, 13.5, 80.0, y + 8.0, color::TEXT, label);
+            ui.text(Face::Regular, 10.5, 80.0, y + 36.0, color::MUTED, detail);
             ui.rounded(32.0, y + 75.0, w - 64.0, 1.0, 0.0, color::BORDER);
             targets.push(([32.0, y, w - 64.0, 76.0], *action));
         }
