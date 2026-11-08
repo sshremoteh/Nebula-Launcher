@@ -329,7 +329,7 @@ impl Catalog {
         let mut result = Self {
             local: vec![],
             bundled_enabled: Default::default(),
-            sections: [false, false, false],
+            sections: [true, false, false],
             pending_delete: None,
             downloaded: vec![],
             downloading: None,
@@ -473,22 +473,57 @@ impl Catalog {
                     changed = true;
                 }
             } else if lower.ends_with(".hnmod") {
-                if let Ok(bundle) = horizon_mods::index::native::Bundle::read(&path) {
-                    let id = bundle.manifest.id;
-                    let _ = std::fs::copy(&path, native_dir.join(format!("{id}.hnmod")));
-                    if !on.enabled.contains(&id) && !on.disabled.contains(&id) {
-                        on.enabled.insert(id.clone());
-                        let _ = crate::browser::java::set_enabled(game, &id, true);
-                        changed = true;
+                let mut id = String::new();
+                if let Ok(file) = std::fs::File::open(&path) {
+                    if let Ok(mut zip) = zip::ZipArchive::new(file) {
+                        for i in 0..zip.len() {
+                            let Ok(mut e) = zip.by_index(i) else { continue };
+                            if e.name().ends_with("horizon-native.json") {
+                                use std::io::Read;
+                                let mut text = String::new();
+                                let _ = e.read_to_string(&mut text);
+                                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                                    if let Some(i) = v["id"].as_str() { id = i.to_string(); }
+                                }
+                            }
+                        }
                     }
                 }
+                if id.is_empty() {
+                    id = name.strip_suffix(".hnmod").unwrap_or(&name).to_string();
+                }
+                let _ = std::fs::copy(&path, native_dir.join(format!("{id}.hnmod")));
+                if !on.enabled.contains(&id) && !on.disabled.contains(&id) {
+                    on.enabled.insert(id.clone());
+                    let _ = crate::browser::java::set_enabled(game, &id, true);
+                    changed = true;
+                }
             } else if lower.ends_with(".hmod") {
+                let mut id = String::new();
                 if let Ok(pkg) = horizon_mods::Package::read(&path) {
-                    if !on.enabled.contains(&pkg.manifest.id) && !on.disabled.contains(&pkg.manifest.id) {
-                        on.enabled.insert(pkg.manifest.id.clone());
-                        let _ = crate::browser::java::set_enabled(game, &pkg.manifest.id, true);
-                        changed = true;
+                    id = pkg.manifest.id;
+                } else if let Ok(file) = std::fs::File::open(&path) {
+                    if let Ok(mut zip) = zip::ZipArchive::new(file) {
+                        for i in 0..zip.len() {
+                            let Ok(mut e) = zip.by_index(i) else { continue };
+                            if e.name().ends_with("horizon-mod.toml") {
+                                use std::io::Read;
+                                let mut text = String::new();
+                                let _ = e.read_to_string(&mut text);
+                                if let Ok(m) = horizon_mods::Manifest::parse(&text) {
+                                    id = m.id;
+                                }
+                            }
+                        }
                     }
+                }
+                if id.is_empty() {
+                    id = name.strip_suffix(".hmod").unwrap_or(&name).to_string();
+                }
+                if !on.enabled.contains(&id) && !on.disabled.contains(&id) {
+                    on.enabled.insert(id.clone());
+                    let _ = crate::browser::java::set_enabled(game, &id, true);
+                    changed = true;
                 }
             }
         }
@@ -877,6 +912,8 @@ impl Catalog {
                     .file
                     .strip_suffix(".hmod")
                     .or_else(|| item.file.strip_suffix(".hnmod"))
+                    .or_else(|| item.file.strip_suffix(".jar"))
+                    .or_else(|| item.file.strip_suffix(".zip"))
                     .unwrap_or(&item.file);
                 if item.enabled {
                     on.enabled.remove(id);
@@ -958,6 +995,8 @@ impl Catalog {
                     .file
                     .strip_suffix(".hmod")
                     .or_else(|| item.file.strip_suffix(".hnmod"))
+                    .or_else(|| item.file.strip_suffix(".jar"))
+                    .or_else(|| item.file.strip_suffix(".zip"))
                     .unwrap_or(&item.file);
                 let mut on = horizon_client::mod_list::ModList::load(&game);
                 on.enabled.remove(id);

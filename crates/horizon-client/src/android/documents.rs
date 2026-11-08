@@ -369,19 +369,60 @@ fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()>
         })?;
         let mut mod_info: Option<(String, String)> = None;
         let name = if request.kind == Kind::Mods {
-            if let Ok(pkg) = horizon_mods::Package::read(&staged) {
+            let lower_name = name.to_ascii_lowercase();
+            let is_native = lower_name.ends_with(".hnmod")
+                || (|| -> bool {
+                    let Ok(f) = std::fs::File::open(&staged) else { return false };
+                    let Ok(mut z) = zip::ZipArchive::new(f) else { return false };
+                    (0..z.len()).any(|i| z.by_index(i).is_ok_and(|e| e.name().ends_with("horizon-native.json")))
+                })();
+
+            if is_native {
+                let mut mod_id = String::new();
+                let mut mod_title = String::new();
+                if let Ok(f) = std::fs::File::open(&staged) {
+                    if let Ok(mut z) = zip::ZipArchive::new(f) {
+                        for i in 0..z.len() {
+                            let Ok(mut e) = z.by_index(i) else { continue };
+                            if e.name().ends_with("horizon-native.json") {
+                                use std::io::Read;
+                                let mut text = String::new();
+                                let _ = e.read_to_string(&mut text);
+                                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
+                                    if let Some(id) = v["id"].as_str() { mod_id = id.to_string(); }
+                                    if let Some(n) = v["name"].as_str() { mod_title = n.to_string(); }
+                                }
+                            }
+                        }
+                    }
+                }
+                if mod_id.is_empty() {
+                    mod_id = std::path::Path::new(&name)
+                        .file_stem()
+                        .map(|s| s.to_string_lossy().into_owned())
+                        .unwrap_or_else(|| "mod".into());
+                }
+                let mut clean_id = String::new();
+                for c in mod_id.chars() {
+                    if c.is_ascii_lowercase() || c.is_ascii_digit() { clean_id.push(c); }
+                    else if c.is_ascii_uppercase() { clean_id.push(c.to_ascii_lowercase()); }
+                    else if c == '-' || c == '.' || c == '_' { clean_id.push('_'); }
+                }
+                while clean_id.contains("__") { clean_id = clean_id.replace("__", "_"); }
+                let clean_id = clean_id.trim_matches('_').to_string();
+                let clean_id = if clean_id.is_empty() { "mod".to_string() } else { clean_id[..clean_id.len().min(64)].to_string() };
+                if mod_title.is_empty() { mod_title = format!("Native: {clean_id}"); }
+
+                mod_info = Some((clean_id.clone(), mod_title));
+                let native_dir = request.home.join(horizon_client::mod_list::NATIVE_DIR);
+                let _ = std::fs::create_dir_all(&native_dir);
+                let _ = std::fs::copy(&staged, native_dir.join(format!("{clean_id}.hnmod")));
+                format!("{clean_id}.hnmod")
+            } else if let Ok(pkg) = horizon_mods::Package::read(&staged) {
                 let id = pkg.manifest.id;
                 let title = pkg.manifest.name;
                 mod_info = Some((id.clone(), title));
                 format!("{id}.hmod")
-            } else if let Ok(bundle) = horizon_mods::index::native::Bundle::read(&staged) {
-                let id = bundle.manifest.id.clone();
-                let title = format!("Native: {}", bundle.manifest.id);
-                mod_info = Some((id.clone(), title));
-                let native_dir = request.home.join(horizon_client::mod_list::NATIVE_DIR);
-                let _ = std::fs::create_dir_all(&native_dir);
-                let _ = std::fs::copy(&staged, native_dir.join(format!("{id}.hnmod")));
-                format!("{id}.hnmod")
             } else {
                 notice("Porting Java mod with Horizon Port-Pack...", false);
                 let temp_out = request.cache.join(format!(".check-{stamp}"));
@@ -411,7 +452,7 @@ fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()>
                     for i in 0..zip.len() {
                         let Ok(mut entry) = zip.by_index(i) else { continue };
                         let ename = entry.name().to_string();
-                        if ename == "fabric.mod.json" {
+                        if ename == "fabric.mod.json" || ename.ends_with("/fabric.mod.json") {
                             let mut text = String::new();
                             let _ = entry.read_to_string(&mut text);
                             if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {

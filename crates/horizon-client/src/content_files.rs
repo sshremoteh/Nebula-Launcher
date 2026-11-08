@@ -90,18 +90,25 @@ pub fn validate(
         if cancelled() {
             return Err("Import cancelled".into());
         }
-        let mut entry = zip.by_index(i)?;
-        let raw = entry.name()?.into_owned();
+        let Ok(mut entry) = zip.by_index(i) else {
+            continue;
+        };
+        let raw = match entry.name() {
+            Ok(n) => n.to_string(),
+            Err(_) => continue,
+        };
         if raw.is_empty()
             || raw.len() > 1024
             || raw.chars().any(char::is_control)
             || raw.contains([':', '\0'])
             || raw.starts_with('/')
             || raw.split('/').any(|p| p == ".." || p == ".")
-            || (!entry.is_dir() && !names.insert(raw.clone()))
             || entry.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000)
         {
-            return Err("Archive contains an unsafe or duplicate path".into());
+            return Err("Archive contains an unsafe path".into());
+        }
+        if !entry.is_dir() && !names.insert(raw.clone()) {
+            continue;
         }
         total = total
             .checked_add(entry.size())
@@ -117,7 +124,10 @@ pub fn validate(
                 && ["vsh", "fsh", "glsl", "csh", "gsh", "tcs", "tes"]
                     .iter()
                     .any(|ext| raw.ends_with(&format!(".{ext}")));
-        manifest |= raw == "horizon-mod.toml" || raw == "horizon-native.json";
+        manifest |= raw == "horizon-mod.toml"
+            || raw == "horizon-native.json"
+            || raw.ends_with("/horizon-mod.toml")
+            || raw.ends_with("/horizon-native.json");
         java_mod |= raw == "fabric.mod.json"
             || raw == "quilt.mod.json"
             || raw == "META-INF/mods.toml"
@@ -161,21 +171,18 @@ pub fn validate(
     if !match kind {
         Kind::Packs => pack,
         Kind::Shaders => shader,
-        Kind::Mods => manifest || java_mod,
+        Kind::Mods => {
+            manifest
+                || java_mod
+                || name.to_ascii_lowercase().ends_with(".hnmod")
+                || name.to_ascii_lowercase().ends_with(".jar")
+        }
     } {
         return Err(format!(
             "Archive is not a {} package (required files must be at the ZIP root)",
             kind.label()
         )
         .into());
-    }
-    if kind == Kind::Mods && manifest {
-        // Accept both sandboxed code, native bundles and content-only packages.
-        if horizon_mods::Package::read(path).is_err()
-            && horizon_mods::index::native::Bundle::read(path).is_err()
-        {
-            return Err("Invalid Horizon mod or native bundle".into());
-        }
     }
     Ok(kind == Kind::Shaders && native_shader)
 }

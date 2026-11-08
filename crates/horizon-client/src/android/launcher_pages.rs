@@ -901,6 +901,24 @@ impl Launcher {
 
             let bottom = h - 40.0;
 
+            let local_items: Vec<(usize, crate::catalog::LocalItem)> = if page.is_catalog() {
+                let q = self.catalog.query.to_lowercase();
+                self.catalog
+                    .local
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, item)| {
+                        item.kind == kind
+                            && (q.is_empty()
+                                || item.title.to_lowercase().contains(&q)
+                                || item.file.to_lowercase().contains(&q))
+                    })
+                    .map(|(i, item)| (i, item.clone()))
+                    .collect()
+            } else {
+                Vec::new()
+            };
+
             let bundled: Vec<_> = if page == Page::Mods
                 && self.catalog.config.mod_source == crate::shader_catalog::Origin::Horizon
             {
@@ -922,12 +940,13 @@ impl Launcher {
                 .filter(|(_, p)| {
                     !(page == Page::Mods
                         && p.source == crate::browser::SourceId::Horizon
-                        && horizon_client::mod_list::ANDROID_BUNDLED
+                        && (horizon_client::mod_list::ANDROID_BUNDLED
                             .iter()
-                            .any(|(id, _, _)| *id == p.id))
+                            .any(|(id, _, _)| *id == p.id)
+                            || local_items.iter().any(|(_, it)| it.file.starts_with(&p.id))))
                 })
                 .collect();
-            let row_count = bundled.len() + catalog_rows.len();
+            let row_count = local_items.len() + bundled.len() + catalog_rows.len();
             let card_h = 48.0;
             let row_pitch = 52.0;
             let maximum = (row_count as f32 * row_pitch - (bottom - top)).max(0.0);
@@ -950,8 +969,55 @@ impl Launcher {
                 ui.text(Face::Medium, 12.0, (w - empty_w) * 0.5, top + 36.0, color::MUTED, empty_msg);
             }
 
-            for (row, (id, title, description)) in bundled.iter().enumerate() {
+            for (row, (local_idx, item)) in local_items.iter().enumerate() {
                 let y = top + row as f32 * row_pitch - self.catalog.scroll;
+                self.list_targets.push(([pad + card_w - 10.0 - btn_w, y, btn_w, card_h], Action::ToggleLocal(*local_idx)));
+                if y + card_h < top || y > bottom {
+                    continue;
+                }
+                let enabled = item.enabled;
+                ui.rounded(pad, y, card_w, card_h, 6.0, rgba(20, 23, 29, 230));
+                if enabled {
+                    ui.border(pad, y, card_w, card_h, 6.0, accent_color.border());
+                } else {
+                    ui.border(pad, y, card_w, card_h, 6.0, rgba(255, 255, 255, 14));
+                }
+
+                let max_text_w = card_w - btn_w - 28.0;
+                let fit_title = ui.fit_text(Face::SemiBold, 12.0, &item.title, max_text_w);
+                let badge = if item.file.ends_with(".hnmod") {
+                    "Нативный мод (.hnmod) • Локальный"
+                } else if item.file.ends_with(".jar") {
+                    "Java мод (.jar) • Портирован"
+                } else if page == Page::Packs {
+                    "Ресурспак • Установлен"
+                } else if page == Page::Shaders {
+                    "Шейдерпак • Установлен"
+                } else {
+                    "Установленный мод (.hmod)"
+                };
+                let fit_summary = ui.fit_text(Face::Regular, 9.5, badge, max_text_w);
+                ui.text(Face::SemiBold, 12.0, pad + 12.0, y + 8.0, rgba(248, 250, 252, 255), &fit_title);
+                ui.text(Face::Regular, 9.5, pad + 12.0, y + 26.0, rgba(148, 163, 184, 255), &fit_summary);
+
+                let btn_x = pad + card_w - 10.0 - btn_w;
+                let btn_y = y + (card_h - btn_h) * 0.5;
+                if y >= top - 2.0 && y + card_h <= bottom + 2.0 {
+                    button_accent(
+                        &mut ui,
+                        &mut self.targets,
+                        [btn_x, btn_y, btn_w, btn_h],
+                        if enabled { "Отключить" } else { "Включить" },
+                        Action::ToggleLocal(*local_idx),
+                        !enabled,
+                        accent_color,
+                    );
+                }
+            }
+
+            for (row, (id, title, description)) in bundled.iter().enumerate() {
+                let y = top + (row + local_items.len()) as f32 * row_pitch - self.catalog.scroll;
+                self.list_targets.push(([pad + card_w - 10.0 - btn_w, y, btn_w, card_h], Action::ToggleBundled(id)));
                 if y + card_h < top || y > bottom {
                     continue;
                 }
@@ -985,7 +1051,7 @@ impl Launcher {
             }
 
             for (row, (i, p)) in catalog_rows.into_iter().enumerate() {
-                let y = top + (row + bundled.len()) as f32 * row_pitch - self.catalog.scroll;
+                let y = top + (row + local_items.len() + bundled.len()) as f32 * row_pitch - self.catalog.scroll;
                 let download = self.catalog.download_label(p);
                 let can_install = download.is_none()
                     && !crate::catalog::source_only_mod(p)
