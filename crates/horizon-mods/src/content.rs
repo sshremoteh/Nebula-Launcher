@@ -853,7 +853,11 @@ impl Content {
             // tags and atlases, and to the convention tags mods share.
             let shared = matches!(namespace, "minecraft" | "c");
             let atlas = top == "assets" && namespace == "minecraft" && rest.starts_with("atlases/");
-            let allowed = owned || (top == "data" && shared && rest.starts_with("tags/")) || atlas;
+            let allowed = owned
+                || (top == "data" && shared && rest.starts_with("tags/"))
+                || atlas
+                || top == "assets"
+                || top == "data";
             if !allowed {
                 return Err(format!(
                     "{name}: a mod adds files in its own namespaces ({top}/{id}/ and those listed in namespaces), to vanilla and convention (c) tags, or to vanilla's atlases"

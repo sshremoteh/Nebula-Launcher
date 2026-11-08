@@ -215,9 +215,32 @@ pub(super) fn content_root(
     dev: &[std::path::PathBuf],
 ) -> std::path::PathBuf {
     use horizon_client::mod_content::{self, ContentMod};
-    use horizon_mods::{Capability, Content, Package};
+    use horizon_mods::{Content, Package};
     let here = std::env::current_dir().unwrap_or_default();
     let mut paths = horizon_mods::find(&here.join(mod_list::DIR));
+    let native_dir = here.join(mod_list::NATIVE_DIR);
+    if native_dir.is_dir() {
+        for p in horizon_mods::find(&native_dir) {
+            if !paths.contains(&p) {
+                paths.push(p);
+            }
+        }
+    }
+    let opt_dir = Game::options_path();
+    if let Some(opt_parent) = opt_dir.parent() {
+        if opt_parent != here {
+            for p in horizon_mods::find(&opt_parent.join(mod_list::DIR)) {
+                if !paths.contains(&p) {
+                    paths.push(p);
+                }
+            }
+            for p in horizon_mods::find(&opt_parent.join(mod_list::NATIVE_DIR)) {
+                if !paths.contains(&p) {
+                    paths.push(p);
+                }
+            }
+        }
+    }
     paths.retain(|p| !dev.contains(p));
     paths.extend(dev.iter().cloned());
     let mut known = None;
@@ -228,10 +251,7 @@ pub(super) fn content_root(
         };
         let m = &package.manifest;
         let on = enabled.contains(&m.id) || dev.contains(path);
-        if !on
-            || !m.capabilities.contains(&Capability::Registries)
-            || mods.iter().any(|c| c.id == m.id)
-        {
+        if !on || mods.iter().any(|c| c.id == m.id) {
             continue;
         }
         let content = match Content::read(path, m) {
@@ -324,6 +344,11 @@ impl Game<'_> {
             );
         }
         self.list_native_mods();
+        let native_dir = Self::options_path().with_file_name(mod_list::NATIVE_DIR);
+        let built_file = Self::options_path().with_file_name(BUILD_INFO);
+        let built_str = std::fs::read_to_string(&built_file).unwrap_or_default();
+        let unbuilt = not_built(&native_dir, &built_str, &self.settings.mods.installed);
+        self.settings.mods.installed.extend(unbuilt);
     }
     pub(super) fn merge_remote_tree(&mut self) {}
     pub(super) fn sync_mods(&mut self) {}
@@ -393,6 +418,31 @@ impl Game<'_> {
         let dir = Self::options_path().with_file_name(mod_list::DIR);
         let dev = &self.mods.dev;
         let mut paths = horizon_mods::find(&dir);
+        let native_dir = Self::options_path().with_file_name(mod_list::NATIVE_DIR);
+        if native_dir.is_dir() {
+            for p in horizon_mods::find(&native_dir) {
+                if !paths.contains(&p) {
+                    paths.push(p);
+                }
+            }
+        }
+        let here = std::env::current_dir().unwrap_or_default();
+        let here_mods = here.join(mod_list::DIR);
+        if here_mods.is_dir() && here_mods != dir {
+            for p in horizon_mods::find(&here_mods) {
+                if !paths.contains(&p) {
+                    paths.push(p);
+                }
+            }
+        }
+        let here_native = here.join(mod_list::NATIVE_DIR);
+        if here_native.is_dir() && here_native != native_dir {
+            for p in horizon_mods::find(&here_native) {
+                if !paths.contains(&p) {
+                    paths.push(p);
+                }
+            }
+        }
         paths.retain(|p| !dev.contains(p));
         paths.extend(dev.iter().cloned());
         // A dev mod is on whatever the list says.
@@ -447,10 +497,11 @@ impl Game<'_> {
                     _ => None,
                 };
                 let Some(m) = &e.manifest else {
+                    let stem = e.path.file_stem().unwrap_or_default().to_string_lossy();
                     return Installed {
-                        id: String::new(),
-                        title: file.into_owned(),
-                        description: String::new(),
+                        id: stem.clone().into_owned(),
+                        title: stem.into_owned(),
+                        description: file.into_owned(),
                         problem,
                         dev: false,
                         has_settings: false,
@@ -476,6 +527,11 @@ impl Game<'_> {
             })
             .collect();
         self.list_native_mods();
+        let native_dir = Self::options_path().with_file_name(mod_list::NATIVE_DIR);
+        let built_file = Self::options_path().with_file_name(BUILD_INFO);
+        let built_str = std::fs::read_to_string(&built_file).unwrap_or_default();
+        let unbuilt = not_built(&native_dir, &built_str, &self.settings.mods.installed);
+        self.settings.mods.installed.extend(unbuilt);
     }
     /// The chat's tree after the running mods changed.
     fn sync_mod_commands(&mut self) {
@@ -1421,7 +1477,6 @@ mod tests {
     }
 }
 
-#[cfg(test)]
 fn not_built(
     dir: &std::path::Path,
     built: &str,

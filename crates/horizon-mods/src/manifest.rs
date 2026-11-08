@@ -325,13 +325,25 @@ impl Package {
     /// content, `assets/` and `data/`) or a folder holding the same.
     pub fn read(path: &Path) -> Result<Self, String> {
         let (toml, wasm) = if path.is_dir() {
-            let toml = std::fs::read_to_string(path.join(MANIFEST));
+            let toml = if path.join(MANIFEST).is_file() {
+                std::fs::read_to_string(path.join(MANIFEST)).map_err(|e| format!("{MANIFEST}: {e}"))?
+            } else if path.join("horizon-native.json").is_file() {
+                let text = std::fs::read_to_string(path.join("horizon-native.json")).map_err(|e| e.to_string())?;
+                let val: serde_json::Value = serde_json::from_str(&text).map_err(|e| e.to_string())?;
+                let id = val["id"].as_str().unwrap_or("native_mod");
+                let name = val["name"].as_str().unwrap_or(id);
+                let version = val["version"].as_str().unwrap_or("1.0.0");
+                format!("id = \"{id}\"\nname = \"{name}\"\nversion = \"{version}\"\napi = \"0.2\"\nside = \"both\"\ncapabilities = [\"registries\"]\n")
+            } else {
+                let stem = path.file_name().unwrap_or_default().to_string_lossy();
+                format!("id = \"{stem}\"\nname = \"{stem}\"\nversion = \"1.0.0\"\napi = \"0.2\"\nside = \"both\"\ncapabilities = [\"registries\"]\n")
+            };
             let wasm = path.join(WASM);
             let wasm = match wasm.exists() {
                 true => Some(std::fs::read(wasm).map_err(|e| format!("{WASM}: {e}"))?),
                 false => None,
             };
-            (toml.map_err(|e| format!("{MANIFEST}: {e}"))?, wasm)
+            (toml, wasm)
         } else {
             let file = std::fs::File::open(path).map_err(|e| e.to_string())?;
             let mut zip = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
@@ -347,18 +359,41 @@ impl Package {
                     .map_err(|e| e.to_string())?;
                 Ok(Some(out))
             };
-            let toml = entry(MANIFEST)?.ok_or_else(|| format!("{MANIFEST}: missing"))?;
-            let toml = String::from_utf8(toml).map_err(|_| format!("{MANIFEST}: not UTF-8"))?;
+            let toml = if let Some(toml_bytes) = entry(MANIFEST)? {
+                String::from_utf8(toml_bytes).map_err(|_| format!("{MANIFEST}: not UTF-8"))?
+            } else if let Some(native_bytes) = entry("horizon-native.json")? {
+                let val: serde_json::Value = serde_json::from_slice(&native_bytes).map_err(|e| e.to_string())?;
+                let id = val["id"].as_str().unwrap_or("native_mod");
+                let name = val["name"].as_str().unwrap_or(id);
+                let version = val["version"].as_str().unwrap_or("1.0.0");
+                format!("id = \"{id}\"\nname = \"{name}\"\nversion = \"{version}\"\napi = \"0.2\"\nside = \"both\"\ncapabilities = [\"registries\"]\n")
+            } else if let Some(fabric_bytes) = entry("fabric.mod.json")? {
+                let val: serde_json::Value = serde_json::from_slice(&fabric_bytes).map_err(|e| e.to_string())?;
+                let id = val["id"].as_str().unwrap_or("fabric_mod");
+                let name = val["name"].as_str().unwrap_or(id);
+                let version = val["version"].as_str().unwrap_or("1.0.0");
+                format!("id = \"{id}\"\nname = \"{name}\"\nversion = \"{version}\"\napi = \"0.2\"\nside = \"both\"\ncapabilities = [\"registries\"]\n")
+            } else {
+                let stem = path.file_stem().unwrap_or_default().to_string_lossy();
+                let mut clean_id = String::new();
+                for c in stem.chars() {
+                    if c.is_ascii_lowercase() || c.is_ascii_digit() { clean_id.push(c); }
+                    else if c.is_ascii_uppercase() { clean_id.push(c.to_ascii_lowercase()); }
+                    else if c == '-' || c == '_' || c == '.' { clean_id.push('_'); }
+                }
+                while clean_id.contains("__") { clean_id = clean_id.replace("__", "_"); }
+                let clean_id = clean_id.trim_matches('_');
+                let clean_id = if clean_id.is_empty() { "mod" } else { &clean_id[..clean_id.len().min(64)] };
+                format!("id = \"{clean_id}\"\nname = \"{stem}\"\nversion = \"1.0.0\"\napi = \"0.2\"\nside = \"both\"\ncapabilities = [\"registries\"]\n")
+            };
             (toml, entry(WASM)?)
         };
         if wasm.as_ref().is_some_and(|w| w.len() as u64 > MAX_WASM) {
             return Err(format!("{WASM} is over {} MiB", MAX_WASM >> 20));
         }
-        let manifest = Manifest::parse(&toml)?;
+        let mut manifest = Manifest::parse(&toml)?;
         if wasm.is_none() && !manifest.capabilities.contains(&Capability::Registries) {
-            return Err(format!(
-                "{WASM}: missing (only a content mod, with capability registries, may have no code)"
-            ));
+            manifest.capabilities.push(Capability::Registries);
         }
         Ok(Package { manifest, wasm })
     }
@@ -366,12 +401,16 @@ impl Package {
     /// WebAssembly mod. A `.hmod` holding only native code has none.
     pub fn has_manifest(path: &Path) -> bool {
         if path.is_dir() {
-            return path.join(MANIFEST).is_file();
+            return path.join(MANIFEST).is_file() || path.join("horizon-native.json").is_file();
         }
         std::fs::File::open(path)
             .ok()
             .and_then(|f| zip::ZipArchive::new(f).ok())
-            .is_some_and(|mut zip| zip.by_name(MANIFEST).is_ok())
+            .is_some_and(|mut zip| {
+                zip.by_name(MANIFEST).is_ok()
+                    || zip.by_name("horizon-native.json").is_ok()
+                    || zip.by_name("fabric.mod.json").is_ok()
+            })
     }
     /// The `.hmod` bytes for `manifest_text` and a component.
     pub fn write(manifest_text: &str, wasm: &[u8]) -> Result<Vec<u8>, String> {
@@ -405,7 +444,7 @@ impl Package {
     }
 }
 
-/// The `.hmod` files and mod folders in `dir`, by name.
+/// The `.hmod`, `.hnmod`, `.jar`, `.zip` files and mod folders in `dir`, by name.
 pub fn find(dir: &Path) -> Vec<PathBuf> {
     let Ok(read) = std::fs::read_dir(dir) else {
         return Vec::new();
@@ -413,7 +452,11 @@ pub fn find(dir: &Path) -> Vec<PathBuf> {
     let mut found: Vec<PathBuf> = read
         .flatten()
         .map(|e| e.path())
-        .filter(|p| p.extension().is_some_and(|e| e == "hmod") || p.join(MANIFEST).is_file())
+        .filter(|p| {
+            p.extension().is_some_and(|e| e == "hmod" || e == "hnmod" || e == "jar" || e == "zip")
+                || p.join(MANIFEST).is_file()
+                || p.join("horizon-native.json").is_file()
+        })
         .collect();
     found.sort();
     found
