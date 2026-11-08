@@ -1812,9 +1812,10 @@ impl Launcher {
                 std::fs::write(game.join(horizon_client::mod_list::FILE), list.serialize())?;
                 self.catalog.refresh(&self.home);
                 self.catalog.status = format!(
-                    "Bundled {id} {}. Applies on Play; settings are in Options > Mods.",
-                    if enabled { "disabled" } else { "enabled" }
+                    "Мод {id} {}.",
+                    if enabled { "отключен" } else { "включен" }
                 );
+                self.catalog.show_installed(Some(horizon_client::content_files::Kind::Mods));
             }
             Some(Action::GameFiles) => {
                 self.catalog.status = if crate::platform::open_documents(crate::document_store::ROOT) {
@@ -1904,7 +1905,13 @@ impl Launcher {
                 self.catalog.sections[i] = !self.catalog.sections[i];
                 self.catalog.scroll = 0.0;
             }
-            Some(Action::ToggleLocal(i)) => self.catalog.toggle_local(&self.home, i),
+            Some(Action::ToggleLocal(i)) => {
+                let is_mods_page = self.catalog.page == Page::Mods;
+                self.catalog.toggle_local(&self.home, i);
+                if is_mods_page {
+                    self.catalog.show_installed(Some(horizon_client::content_files::Kind::Mods));
+                }
+            }
             Some(Action::DeleteLocal(i)) => {
                 self.catalog.pending_delete = self.catalog.local.get(i).cloned();
                 if let Some(item) = &self.catalog.pending_delete {

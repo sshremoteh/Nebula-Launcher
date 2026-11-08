@@ -94,9 +94,9 @@ fn imported(text: impl Into<String>, kind: Kind) {
 pub fn poll() -> Option<Notice> {
     if crate::document_provider::take_changes() {
         return Some(Notice {
-            text: "Content files changed. Reload packs to apply.".into(),
+            text: "Файлы контента обновлены из проводника.".into(),
             changed: true,
-            kind: None,
+            kind: Some(Kind::Mods),
         });
     }
     STATE
@@ -226,7 +226,8 @@ pub extern "system" fn import_external_uri(
     } else {
         Kind::Mods
     };
-    let Some(home) = crate::platform::files_dir() else { return; };
+    let Some(files_dir) = crate::platform::files_dir() else { return; };
+    let home = crate::catalog::Config::load(&files_dir).game_home(&files_dir);
     let cache = match crate::platform::cache_dir() {
         Some(c) => c.join("content-imports"),
         None => return,
@@ -536,36 +537,27 @@ fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()>
         }
         let target = dir.join(name);
         if target.exists() {
-            STATE.lock().unwrap_or_else(|e| e.into_inner()).conflict = Some(Conflict {
-                kind: request.kind,
-                staged: staged.clone(),
-                target,
-            });
-            notice(
-                "File already exists: choose Keep both, Replace or Cancel",
-                false,
+            let _ = std::fs::remove_file(&target);
+        }
+        std::fs::rename(&staged, &target)?;
+        if let Some((id, title)) = mod_info {
+            let mut list = horizon_client::mod_list::ModList::load(&request.home);
+            list.enabled.insert(id.clone());
+            list.disabled.remove(&id);
+            let _ = list.save(&request.home);
+            let _ = crate::catalog::set_mod_enabled(&request.home, &id, true);
+            imported(
+                format!("Мод {title} ({id}) успешно установлен и включен."),
+                request.kind,
             );
         } else {
-            std::fs::rename(&staged, &target)?;
-            if let Some((id, title)) = mod_info {
-                let mut list = horizon_client::mod_list::ModList::load(&request.home);
-                list.enabled.insert(id.clone());
-                let _ = list.save(&request.home);
-                let _ = crate::catalog::set_mod_enabled(&request.home, &id, true);
-                imported(
-                    format!("Successfully ported and enabled mod {title} ({id})."),
-                    request.kind,
-                );
-            } else {
-                imported(
-                    format!(
-                        "Imported {} into {}. Enable it in game settings.",
-                        target.file_name().unwrap_or_default().to_string_lossy(),
-                        request.kind.label()
-                    ),
-                    request.kind,
-                );
-            }
+            imported(
+                format!(
+                    "Файл {} успешно импортирован!",
+                    target.file_name().unwrap_or_default().to_string_lossy(),
+                ),
+                request.kind,
+            );
         }
         Ok(())
     })();

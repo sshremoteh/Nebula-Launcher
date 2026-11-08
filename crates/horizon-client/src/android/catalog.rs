@@ -583,6 +583,8 @@ impl Catalog {
                             let id = name
                                 .strip_suffix(".hmod")
                                 .or_else(|| name.strip_suffix(".hnmod"))
+                                .or_else(|| name.strip_suffix(".jar"))
+                                .or_else(|| name.strip_suffix(".zip"))
                                 .unwrap_or(&name);
                             on.enabled.contains(id)
                         }
@@ -596,6 +598,17 @@ impl Catalog {
                         });
                     }
                 }
+            }
+        }
+        for (id, title, _desc) in horizon_client::mod_list::ANDROID_BUNDLED {
+            let enabled = self.bundled_enabled.contains(id);
+            if !self.local.iter().any(|item| item.kind == horizon_client::content_files::Kind::Mods && item.file == id) {
+                self.local.push(LocalItem {
+                    kind: horizon_client::content_files::Kind::Mods,
+                    file: id.to_string(),
+                    title: format!("{title} (Встроенный)"),
+                    enabled,
+                });
             }
         }
         self.local.sort_by_key(|e| e.title.to_lowercase());
@@ -903,6 +916,25 @@ impl Catalog {
         let mut settings = horizon_client::settings::Settings::load(&path);
         match item.kind {
             horizon_client::content_files::Kind::Mods => {
+                if horizon_client::mod_list::ANDROID_BUNDLED.iter().any(|(b_id, _, _)| *b_id == item.file) {
+                    let mut list = horizon_client::mod_list::ModList::load(&game);
+                    if item.enabled {
+                        list.enabled.remove(&item.file);
+                        list.disabled.insert(item.file.clone());
+                    } else {
+                        list.disabled.remove(&item.file);
+                        list.enabled.insert(item.file.clone());
+                    }
+                    let _ = std::fs::create_dir_all(&game);
+                    let _ = std::fs::write(game.join(horizon_client::mod_list::FILE), list.serialize());
+                    self.status = format!(
+                        "Мод {} {}.",
+                        item.title,
+                        if item.enabled { "отключен" } else { "включен" }
+                    );
+                    self.refresh(home);
+                    return;
+                }
                 if !cfg!(target_pointer_width = "64") {
                     self.status = "Sandboxed code mods require a 64-bit APK".into();
                     return;
@@ -949,6 +981,15 @@ impl Catalog {
             return;
         };
         let game = self.config.game_home(home);
+        if horizon_client::mod_list::ANDROID_BUNDLED.iter().any(|(b_id, _, _)| *b_id == item.file) {
+            let mut list = horizon_client::mod_list::ModList::load(&game);
+            list.enabled.remove(&item.file);
+            list.disabled.insert(item.file.clone());
+            let _ = std::fs::create_dir_all(&game);
+            let _ = std::fs::write(game.join(horizon_client::mod_list::FILE), list.serialize());
+            self.refresh(home);
+            return;
+        }
         let result = (|| -> Result<(), String> {
             if !horizon_client::content_files::plain_name(&item.file) {
                 return Err("Invalid content filename".into());
