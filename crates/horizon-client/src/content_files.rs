@@ -90,10 +90,10 @@ pub fn validate(
         if raw.is_empty()
             || raw.len() > 1024
             || raw.chars().any(char::is_control)
-            || raw.contains(['\\', ':', '\0'])
+            || raw.contains([':', '\0'])
             || raw.starts_with('/')
             || raw.split('/').any(|p| p == ".." || p == ".")
-            || !names.insert(raw.clone())
+            || (!entry.is_dir() && !names.insert(raw.clone()))
             || entry.unix_mode().is_some_and(|m| m & 0o170000 == 0o120000)
         {
             return Err("Archive contains an unsafe or duplicate path".into());
@@ -114,9 +114,11 @@ pub fn validate(
                     .any(|ext| raw.ends_with(&format!(".{ext}")));
         manifest |= raw == "horizon-mod.toml";
         java_mod |= raw == "fabric.mod.json"
+            || raw == "quilt.mod.json"
             || raw == "META-INF/mods.toml"
             || raw == "META-INF/neoforge.mods.toml"
             || raw == "mcmod.info"
+            || raw.ends_with(".class")
             || raw.starts_with("assets/")
             || raw.starts_with("data/");
         let expected = entry.size();

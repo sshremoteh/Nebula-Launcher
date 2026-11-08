@@ -163,7 +163,7 @@ pub extern "system" fn document_result(
         notice("Could not read the selected document", false);
         return;
     };
-    if !uri.starts_with("content://") || uri.len() > 8192 {
+    if (!uri.starts_with("content://") && !uri.starts_with("file://")) || uri.len() > 8192 {
         notice("Unsupported document URI", false);
         return;
     }
@@ -196,7 +196,100 @@ pub extern "system" fn document_result(
         notice(format!("Import failed: {error}"), false);
     }
 }
-fn pack_hmod(from_dir: &std::path::Path, to_file: &std::path::Path) -> Result<()> {
+
+/// Called when an external intent (ACTION_VIEW / ACTION_SEND) opens a file with Nebula Launcher.
+#[unsafe(export_name = "Java_dev_horizon_android_HorizonActivity_nativeImportUri")]
+pub extern "system" fn import_external_uri(
+    mut env: JNIEnv<'_>,
+    activity: JObject<'_>,
+    uri: JString<'_>,
+) {
+    let setup = (|| -> jni::errors::Result<_> {
+        let text: String = env.get_string(&uri)?.into();
+        let activity = env.new_global_ref(activity)?;
+        Ok((env.get_java_vm()?, activity, text))
+    })();
+    let Ok((vm, activity, uri)) = setup else {
+        let _ = env.exception_clear();
+        return;
+    };
+    if (!uri.starts_with("content://") && !uri.starts_with("file://")) || uri.len() > 8192 {
+        return;
+    }
+    let lower = uri.to_ascii_lowercase();
+    let kind = if lower.contains(".hshader") {
+        Kind::Shaders
+    } else if lower.contains(".zip") && lower.contains("shader") {
+        Kind::Shaders
+    } else if lower.contains(".zip") && lower.contains("resource") {
+        Kind::Packs
+    } else {
+        Kind::Mods
+    };
+    let Some(home) = crate::platform::files_dir() else { return; };
+    let cache = match crate::platform::cache_dir() {
+        Some(c) => c.join("content-imports"),
+        None => return,
+    };
+    let request = Request { kind, home, cache };
+    STATE.lock().unwrap_or_else(|e| e.into_inner()).working = true;
+    let _ = std::thread::Builder::new()
+        .name("External content import".into())
+        .spawn(move || {
+            let result = (|| -> Result<()> {
+                let mut env = vm.attach_current_thread()?;
+                let fallback = if kind == Kind::Mods { "import.hmod" } else { "import.zip" };
+                let opened = crate::document_bridge::open(&mut env, activity.as_obj(), &uri, fallback);
+                if opened.is_err() {
+                    let _ = env.exception_clear();
+                }
+                let (input, name) = opened.map_err(|e| e.to_string())?;
+                stage(request, input, name)
+            })();
+            STATE.lock().unwrap_or_else(|e| e.into_inner()).working = false;
+            if let Err(error) = result {
+                notice(format!("Import failed: {error}"), false);
+            }
+        });
+}
+
+pub fn clean_filename(name: &str, kind: Kind) -> String {
+    let mut s = name.trim();
+    if let Some(pos) = s.rfind('/') {
+        s = &s[pos + 1..];
+    }
+    if let Some(pos) = s.rfind('\\') {
+        s = &s[pos + 1..];
+    }
+    if let Some(pos) = s.rfind(':') {
+        s = &s[pos + 1..];
+    }
+    if let Some(pos) = s.find('?') {
+        s = &s[..pos];
+    }
+    let mut clean = String::new();
+    for c in s.chars() {
+        if !c.is_control() && !"/\0:\"*?<>|\\".contains(c) {
+            clean.push(c);
+        } else {
+            clean.push('_');
+        }
+    }
+    let mut clean = clean.trim_start_matches('.').to_string();
+    if clean.is_empty() {
+        clean = "import".to_string();
+    }
+    if !kind.accepts(&clean) {
+        match kind {
+            Kind::Mods => clean.push_str(".hmod"),
+            Kind::Packs => clean.push_str(".zip"),
+            Kind::Shaders => clean.push_str(".zip"),
+        }
+    }
+    clean
+}
+
+pub fn pack_hmod(from_dir: &std::path::Path, to_file: &std::path::Path) -> Result<()> {
     let file = std::fs::File::create(to_file)?;
     let mut zip = zip::ZipWriter::new(file);
     let options = zip::write::SimpleFileOptions::default()
@@ -231,6 +324,7 @@ fn pack_hmod(from_dir: &std::path::Path, to_file: &std::path::Path) -> Result<()
 }
 
 fn stage(request: Request, mut input: std::fs::File, name: String) -> Result<()> {
+    let name = clean_filename(&name, request.kind);
     if !content_files::plain_name(&name) || !request.kind.accepts(&name) {
         return Err("Selected file has the wrong extension for this folder".into());
     }

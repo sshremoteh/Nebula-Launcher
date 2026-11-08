@@ -328,6 +328,16 @@ impl Ui {
             }
             Command::ImportDocument => {
                 let result = (|| -> jni::errors::Result<()> {
+                    let called = env.call_method(
+                        &self.activity,
+                        "launchDocumentPicker",
+                        "(I)V",
+                        &[JValue::Int(4101)],
+                    );
+                    if called.is_ok() {
+                        return Ok(());
+                    }
+                    let _ = env.exception_clear();
                     let action =
                         JObject::from(env.new_string("android.intent.action.OPEN_DOCUMENT")?);
                     let intent = env.new_object(

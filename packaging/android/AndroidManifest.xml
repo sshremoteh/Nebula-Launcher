@@ -21,8 +21,21 @@
                 <action android:name="android.content.action.DOCUMENTS_PROVIDER" />
             </intent-filter>
         </provider>
-        <activity android:name="dev.horizon.android.HorizonActivity" android:exported="false" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|keyboardHidden|keyboard|density|screenLayout" android:windowSoftInputMode="adjustResize" android:theme="@style/HorizonGameTheme">
+        <activity android:name="dev.horizon.android.HorizonActivity" android:exported="true" android:screenOrientation="sensorLandscape" android:configChanges="orientation|screenSize|keyboardHidden|keyboard|density|screenLayout" android:windowSoftInputMode="adjustResize" android:theme="@style/HorizonGameTheme">
             <meta-data android:name="android.app.lib_name" android:value="horizon_android" />
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="content" />
+                <data android:scheme="file" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
         <!-- Keep installed launcher shortcuts targeting the previous component. -->
         <activity-alias android:name="com.google.androidgamesdk.GameActivity" android:targetActivity="dev.horizon.android.HorizonActivity" android:exported="true">

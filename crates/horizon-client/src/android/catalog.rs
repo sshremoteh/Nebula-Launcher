@@ -364,8 +364,60 @@ impl Catalog {
             self.sections[i] = true;
         }
     }
+    pub fn sync_local_mods(game: &Path) {
+        let dir = game.join("horizon-mods");
+        let Ok(read) = std::fs::read_dir(&dir) else { return; };
+        let mut on = horizon_client::mod_list::ModList::load(game);
+        let mut changed = false;
+
+        for entry in read.flatten() {
+            if !entry.file_type().is_ok_and(|t| t.is_file()) {
+                continue;
+            }
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().into_owned();
+            let lower = name.to_ascii_lowercase();
+
+            if lower.ends_with(".jar") || (lower.ends_with(".zip") && !lower.ends_with(".hshader")) {
+                let stamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_nanos())
+                    .unwrap_or(0);
+                let cache_dir = game.join(".import-cache");
+                let _ = std::fs::create_dir_all(&cache_dir);
+                let temp_out = cache_dir.join(format!(".check-{stamp}"));
+                let _ = std::fs::remove_dir_all(&temp_out);
+                if let Ok(check) = horizon_port_pack::check::check(&path, &temp_out) {
+                    let carry = temp_out.join("carry");
+                    if carry.join("horizon-mod.toml").is_file() {
+                        let target_hmod = dir.join(format!("{}.hmod", check.mod_id));
+                        if crate::documents::pack_hmod(&carry, &target_hmod).is_ok() {
+                            let _ = std::fs::remove_file(&path);
+                            on.enabled.insert(check.mod_id.clone());
+                            let _ = crate::browser::java::set_enabled(game, &check.mod_id, true);
+                            changed = true;
+                        }
+                    }
+                }
+                let _ = std::fs::remove_dir_all(&temp_out);
+            } else if lower.ends_with(".hmod") {
+                if let Ok(pkg) = horizon_mods::Package::read(&path) {
+                    if !on.enabled.contains(&pkg.manifest.id) && !on.disabled.contains(&pkg.manifest.id) {
+                        on.enabled.insert(pkg.manifest.id.clone());
+                        let _ = crate::browser::java::set_enabled(game, &pkg.manifest.id, true);
+                        changed = true;
+                    }
+                }
+            }
+        }
+        if changed {
+            let _ = on.save(game);
+        }
+    }
+
     pub fn refresh(&mut self, home: &Path) {
         let game = self.config.game_home(home);
+        Self::sync_local_mods(&game);
         let installed = Installed::load(&game);
         self.downloaded = installed
             .entries

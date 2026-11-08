@@ -292,6 +292,20 @@ pub fn cache_dir() -> Option<std::path::PathBuf> {
     })
 }
 
+pub fn files_dir() -> Option<std::path::PathBuf> {
+    with_context(|env, activity| {
+        let file = env
+            .call_method(activity, "getFilesDir", "()Ljava/io/File;", &[])?
+            .l()?;
+        let path = jni::objects::JString::from(
+            env.call_method(&file, "getAbsolutePath", "()Ljava/lang/String;", &[])?
+                .l()?,
+        );
+        let text: String = env.get_string(&path)?.into();
+        Ok(std::path::PathBuf::from(text))
+    })
+}
+
 pub fn open_repository() -> bool {
     open_url("https://github.com/sshremoteh/Nebula-Launcher")
 }
