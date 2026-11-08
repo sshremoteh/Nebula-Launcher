@@ -383,11 +383,20 @@ impl Catalog {
                 continue;
             }
             for entry in std::fs::read_dir(dir).into_iter().flatten().flatten() {
-                if !entry.file_type().is_ok_and(|t| t.is_file()) {
+                let is_file = entry.file_type().is_ok_and(|t| t.is_file());
+                let is_dir = entry.file_type().is_ok_and(|t| t.is_dir());
+                if !is_file && !is_dir {
                     continue;
                 }
                 let name = entry.file_name().to_string_lossy().into_owned();
-                if !horizon_client::content_files::plain_name(&name) || !kind.accepts(&name) {
+                if is_dir {
+                    if kind != horizon_client::content_files::Kind::Mods {
+                        continue;
+                    }
+                    if !entry.path().join("horizon-mod.toml").is_file() {
+                        continue;
+                    }
+                } else if !horizon_client::content_files::plain_name(&name) || !kind.accepts(&name) {
                     continue;
                 }
                 let enabled = match kind {
@@ -397,9 +406,10 @@ impl Catalog {
                     horizon_client::content_files::Kind::Shaders => {
                         settings.horizon.shader_pack == name
                     }
-                    horizon_client::content_files::Kind::Mods => name
-                        .strip_suffix(".hmod")
-                        .is_some_and(|id| on.enabled.contains(id)),
+                    horizon_client::content_files::Kind::Mods => {
+                        let id = name.strip_suffix(".hmod").unwrap_or(&name);
+                        on.enabled.contains(id)
+                    }
                 };
                 self.local.push(LocalItem {
                     kind,
@@ -432,7 +442,7 @@ impl Catalog {
             || (project.kind == Kind::Mod
                 && self.local.iter().any(|item| {
                     item.kind == horizon_client::content_files::Kind::Mods
-                        && item.file == format!("{}.hmod", project.id)
+                        && (item.file == format!("{}.hmod", project.id) || item.file == project.id)
                 }))
         {
             return Some("Installed".into());
@@ -616,7 +626,11 @@ impl Catalog {
                 let package=horizon_mods::Package::read(&stage)?;
                 let destination=dir.join(format!("{}.hmod",package.manifest.id));
                 if destination.exists(){std::fs::copy(&destination,destination.with_extension("hmod.previous")).map_err(|e|e.to_string())?;}
-                std::fs::rename(&stage,destination).map_err(|e|e.to_string())?;
+                std::fs::rename(&stage,&destination).map_err(|e|e.to_string())?;
+                let mut on = horizon_client::mod_list::ModList::load(&game);
+                on.enabled.insert(package.manifest.id.clone());
+                let _ = on.save(&game);
+                let _ = crate::browser::java::set_enabled(&game, &package.manifest.id, true);
                 Ok(Reply::Done(format!("Installed {}. Enable it in Installed after reviewing its capabilities in game Mods.",package.manifest.name), horizon_client::content_files::Kind::Mods))
             })();
             let _=std::fs::remove_file(stage);result
@@ -642,7 +656,10 @@ impl Catalog {
                 ))
             && !(cfg!(target_pointer_width = "64")
                 && project.kind == Kind::Mod
-                && project.source == browser::SourceId::Horizon)
+                && matches!(
+                    project.source,
+                    browser::SourceId::Horizon | browser::SourceId::Modrinth
+                ))
         {
             return;
         }
@@ -668,12 +685,25 @@ impl Catalog {
                     }
                 })?
             } else {
-                browser::installed::install(source.as_ref(), &project, true, &game, &|_name, p| {
+                let entries = browser::installed::install(source.as_ref(), &project, true, &game, &|_name, p| {
                     if p.is_finite() {
                         *progress.lock().unwrap_or_else(|e| e.into_inner()) = p.clamp(0.0, 1.0);
                     }
-                })?
-                .len()
+                })?;
+                if project.kind == Kind::Mod {
+                    let mut on = horizon_client::mod_list::ModList::load(&game);
+                    on.enabled.insert(project.id.clone());
+                    for entry in &entries {
+                        if let Some(id) = entry.file.strip_prefix("horizon-mods/") {
+                            let id = id.strip_suffix(".hmod").unwrap_or(id).trim_end_matches('/');
+                            on.enabled.insert(id.to_string());
+                            let _ = crate::browser::java::set_enabled(&game, id, true);
+                        }
+                    }
+                    let _ = on.save(&game);
+                    let _ = crate::browser::java::set_enabled(&game, &project.id, true);
+                }
+                entries.len()
             };
             Ok(Reply::Done(
                 format!("Installed {count} item(s). Open Play to load this profile."),
@@ -699,14 +729,14 @@ impl Catalog {
                     return;
                 }
                 let mut on = horizon_client::mod_list::ModList::load(&game);
-                if let Some(id) = item.file.strip_suffix(".hmod") {
-                    if item.enabled {
-                        on.enabled.remove(id);
-                    } else {
-                        on.enabled.insert(id.to_owned());
-                    }
+                let id = item.file.strip_suffix(".hmod").unwrap_or(&item.file);
+                if item.enabled {
+                    on.enabled.remove(id);
+                } else {
+                    on.enabled.insert(id.to_owned());
                 }
-                on.save(&game);
+                let _ = on.save(&game);
+                let _ = crate::browser::java::set_enabled(&game, id, !item.enabled);
             }
             horizon_client::content_files::Kind::Packs => {
                 let id = format!("file/{}", item.file);
@@ -748,12 +778,16 @@ impl Catalog {
             }
             let target = dir.join(&item.file);
             let meta = std::fs::symlink_metadata(&target).map_err(|e| e.to_string())?;
-            if !meta.is_file() || meta.file_type().is_symlink() {
+            if meta.file_type().is_symlink() {
                 return Err(
                     "Only an explicitly selected regular add-on file can be removed".into(),
                 );
             }
-            std::fs::remove_file(target).map_err(|e| e.to_string())?;
+            if meta.is_dir() {
+                std::fs::remove_dir_all(&target).map_err(|e| e.to_string())?;
+            } else {
+                std::fs::remove_file(&target).map_err(|e| e.to_string())?;
+            }
             let relative = format!("{}/{}", item.kind.folder(), item.file);
             let mut installed = Installed::load(&game);
             installed.entries.retain(|e| e.file != relative);
@@ -772,11 +806,11 @@ impl Catalog {
             }
             settings.save(&path);
             if item.kind == horizon_client::content_files::Kind::Mods {
+                let id = item.file.strip_suffix(".hmod").unwrap_or(&item.file);
                 let mut on = horizon_client::mod_list::ModList::load(&game);
-                if let Some(id) = item.file.strip_suffix(".hmod") {
-                    on.enabled.remove(id);
-                }
-                on.save(&game);
+                on.enabled.remove(id);
+                let _ = on.save(&game);
+                let _ = crate::browser::java::set_enabled(&game, id, false);
             }
             Ok(())
         })();
@@ -830,4 +864,8 @@ impl Catalog {
             }
         }
     }
+}
+
+pub fn set_mod_enabled(home: &Path, id: &str, on: bool) -> Result<(), String> {
+    crate::browser::java::set_enabled(home, id, on)
 }

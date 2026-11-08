@@ -76,6 +76,7 @@ pub mod item_use_catalog;
 pub mod item_use_lifecycle;
 pub mod item_use_start;
 pub mod java_hash_map;
+pub mod json_folder;
 pub mod level;
 pub mod liquid_collision;
 pub mod live_attribute_updates;

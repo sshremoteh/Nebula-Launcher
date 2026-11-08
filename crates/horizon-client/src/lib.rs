@@ -21,6 +21,7 @@ pub use horizon_client_render::{
     sprites, streaming, structure_block, tab_list, telemetry, test_block, test_instance_block,
     testgen, title_edition, trims, ui, vault, weather, widgets, world, worldborder, zip,
 };
+pub use horizon_world::json_folder;
 pub mod attack_strength;
 pub mod attribute_updates;
 pub mod auto_jump;

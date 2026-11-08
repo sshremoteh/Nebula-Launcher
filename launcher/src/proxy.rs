@@ -52,20 +52,13 @@ pub fn refuse(spec: &str) -> Option<String> {
     if spec.is_empty() {
         return None;
     }
-    if horizon_port_pack::net::socks(spec) {
-        return Some(format!(
-            "{} is a SOCKS proxy; Horizon downloads through an HTTP proxy, such as the \
-             http:// address your proxy app also listens on.",
-            horizon_port_pack::net::redacted(spec)
-        ));
-    }
     // `ureq` takes `http://` without a host, which would leave a download failing with nothing
     // said about the proxy.
     if horizon_port_pack::net::parse(spec).is_none()
         || horizon_port_pack::net::host_of(spec).is_none_or(str::is_empty)
     {
         return Some(format!(
-            "{} isn't a proxy address. Write it as http://host:port.",
+            "{} isn't a proxy address. Write it as http://host:port or socks5://host:port.",
             horizon_port_pack::net::redacted(spec)
         ));
     }
