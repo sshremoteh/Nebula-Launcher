@@ -5,7 +5,7 @@
 # Nebula Launcher
 ### Клиент Minecraft: Java Edition 26.3 для Android на Rust
 
-[![Release](https://img.shields.io/badge/Release-v1.0-22c55e.svg?style=flat-square&logo=android)](https://github.com/sshremoteh/Nebula-Launcher/releases/tag/v1.0)
+[![Release](https://img.shields.io/badge/Release-v1.1-22c55e.svg?style=flat-square&logo=android)](https://github.com/sshremoteh/Nebula-Launcher/releases/tag/v1.1)
 [![Android](https://img.shields.io/badge/Android-9.0--15+-3b82f6.svg?style=flat-square&logo=android)](https://github.com/sshremoteh/Nebula-Launcher)
 [![Arch](https://img.shields.io/badge/Architecture-ARM64--v8a-f97316.svg?style=flat-square&logo=arm)](https://github.com/sshremoteh/Nebula-Launcher)
 [![Engine](https://img.shields.io/badge/Rust-wgpu%20%2F%20Vulkan-ef4444.svg?style=flat-square&logo=rust)](https://github.com/sshremoteh/Nebula-Launcher)
@@ -16,7 +16,7 @@
   Рендеринг на базе Vulkan и OpenGL ES 3.0, сенсорное управление Bedrock Touch, поддержка Java-серверов.
 </p>
 
-[**Скачать APK (v1.0 Release)**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk) • [**Сайт проекта**](https://sshremoteh.github.io/Nebula-Launcher/) • [**Релизы**](https://github.com/sshremoteh/Nebula-Launcher/releases)
+[**Скачать APK (v1.1 Release)**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.1.apk) • [**Сайт проекта**](https://sshremoteh.github.io/Nebula-Launcher/) • [**Релизы**](https://github.com/sshremoteh/Nebula-Launcher/releases)
 
 ---
 
@@ -83,7 +83,7 @@
 
 ## Установка
 
-1. Скачайте файл [**Nebula-Launcher-v1.0.apk**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.0.apk).
+1. Скачайте файл [**Nebula-Launcher-v1.1.apk**](https://github.com/sshremoteh/Nebula-Launcher/releases/latest/download/Nebula-Launcher-v1.1.apk).
 2. Установите APK на устройство (при запросе разрешите установку из используемого источника).
 3. Запустите **Nebula Launcher**.
 4. Укажите никнейм в левой панели (сохраняется автоматически).

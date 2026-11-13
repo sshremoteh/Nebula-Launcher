@@ -270,7 +270,7 @@ impl Launcher {
             24.0,
             if w < 620.0 || h > w { 16.0 } else { 20.0 },
             rgba(248, 250, 252, 255),
-            "NEBULA LAUNCHER • 1.0 Release",
+            "NEBULA LAUNCHER • 1.1 Release",
         );
         button_accent(
             &mut ui,
@@ -571,15 +571,15 @@ impl Launcher {
                 let cl_h = (content_bottom - cl_top).max(80.0);
                 ui.rounded(left_x, cl_top, col_w, cl_h, 8.0, rgba(20, 23, 29, 240));
                 ui.border(left_x, cl_top, col_w, cl_h, 8.0, rgba(255, 255, 255, 20));
-                ui.text(Face::SemiBold, 11.5, left_x + 12.0, cl_top + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.0");
-                ui.text(Face::Regular, 9.5, left_x + col_w - 74.0, cl_top + 12.0, rgba(161, 161, 170, 255), "v1.0 Release");
+                ui.text(Face::SemiBold, 11.5, left_x + 12.0, cl_top + 10.0, rgba(248, 250, 252, 255), "Что нового в Nebula 1.1");
+                ui.text(Face::Regular, 9.5, left_x + col_w - 74.0, cl_top + 12.0, rgba(161, 161, 170, 255), "v1.1 Release");
 
                 let logs = [
-                    "• Оптимизация Vulkan шейдинга и высокий FPS",
+                    "• Поддержка и загрузка модов внутри игры",
+                    "• Импорт .hmod, .hnmod и .jar из проводника",
+                    "• Оптимизация каталога модов и шейдеров",
                     "• Сенсорное управление Bedrock Touch",
-                    "• Поддержка оффлайн игры и Java серверов",
-                    "• Менеджер модов, ресурспаков и шейдеров",
-                    "• Экономия ОЗУ и стабильность от 3 ГБ",
+                    "• Высокий FPS на Vulkan и стабильность",
                 ];
                 for (idx, title) in logs.iter().enumerate() {
                     let y = cl_top + 30.0 + idx as f32 * 20.0;

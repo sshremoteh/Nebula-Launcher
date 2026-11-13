@@ -65,7 +65,7 @@ def main():
     manifest_src = (ROOT / "packaging/android/AndroidManifest.xml").read_text(encoding="utf-8")
     manifest_text = manifest_src.replace(
         '<manifest ',
-        '<manifest package="dev.horizon.android" android:versionCode="100" android:versionName="1.0" '
+        '<manifest package="dev.horizon.android" android:versionCode="110" android:versionName="1.1" '
     ).replace('${applicationId}', 'dev.horizon.android')
     manifest_file = work_dir / "AndroidManifest.xml"
     manifest_file.write_text(manifest_text, encoding="utf-8")
@@ -197,6 +197,7 @@ def main():
 
     keystore_candidates = [
         Path(os.environ.get("ANDROID_KEYSTORE", "")),
+        Path.home() / ".local/android-toolchain/debug.keystore",
         Path("/tmp/debug.keystore"),
         Path.home() / ".android/debug.keystore",
         Path("/opt/android-sdk/debug.keystore"),
@@ -225,9 +226,9 @@ def main():
 
     size_mb = final_apk.stat().st_size / (1024 * 1024)
     print(f"\n========================================================")
-    print(f"  APK NEBULA LAUNCHER 1.0 RELEASE УСПЕШНО СОБРАН И ПОДПИСАН!")
+    print(f"  APK NEBULA LAUNCHER 1.1 RELEASE УСПЕШНО СОБРАН И ПОДПИСАН!")
     print(f"  Приложение: Nebula Launcher")
-    print(f"  Версия: 1.0 Release (code 100)")
+    print(f"  Версия: 1.1 Release (code 110)")
     print(f"  Путь: {final_apk}")
     print(f"  Внутренняя память телефона: {sdcard_apk}")
     print(f"  Размер: {size_mb:.2f} MiB")
